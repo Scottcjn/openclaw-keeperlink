@@ -43,8 +43,23 @@
 **Friction:** None at signup.
 **Suggestion:** A "you've created your first wallet — fund it on these networks" UX nudge would help newcomers know they need to top up before the API works for state-changing calls.
 
-### 2.2 Direct Execution API
-*[TBD — Day 1 hello-world will be a self-transfer or no-op contract call to validate the surface]*
+### 2.2 Direct Execution API → workflow-based API
+
+**Apr 25, 2026** — The pre-event docs and provisioning checklist (referenced from `docs.keeperhub.com/api`) described a "Direct Execution API" with endpoints like `POST /api/execute/transfer` and `POST /api/execute/contract-call`. **These endpoints don't exist on the live API.** The actual surface, per `https://app.keeperhub.com/openapi.json`, is workflow-based:
+
+- `POST /api/mcp/workflows/<slug>/call` — execute a workflow
+- `GET /api/mcp/workflows` — federated bazaar listing
+- `GET /api/workflows` — your org's private workflows
+- `GET /api/chains` — chain registry
+
+**Friction (medium):** The "Direct Execution" branding in older docs misled my Day-0 planning by ~3 hours. I built a Pydantic schema and HTTP client for endpoints that didn't exist. Once I hit `/openapi.json` (HTTP 200, but not linked from anywhere I could find), the real surface clicked instantly.
+
+**Suggestion:** Add a 1-line "API surface overview" section near the top of `docs.keeperhub.com/api` saying "KeeperHub is workflow-based. Each workflow has an HTTP endpoint at `/api/mcp/workflows/<slug>/call`. There is no separate Direct Execution surface — wrap the action you want in a workflow." That single sentence would have saved my Day-0 prep.
+
+**What actually worked great:**
+- Auth: `X-API-Key: kh_...` accepted on first try (no need for the speculatively-suggested `keeper_` prefix)
+- `helloworld` workflow returned a clean execution result in under 200ms
+- The OpenAPI spec at `/openapi.json` is well-structured 3.1, includes the x402 payment shape inline via `x-payment-info` extension — easy to consume programmatically
 
 ### 2.3 MCP server (`https://app.keeperhub.com/mcp`)
 *[TBD — will hit `tools/list` first to confirm transport, then `ai_generate_workflow` for the natural-language demo path]*
@@ -53,7 +68,30 @@
 *[TBD]*
 
 ### 2.5 x402 integration
-*[TBD]*
+
+**Apr 25, 2026** — Discovered during the helloworld kill-test that x402 is **native** at the protocol level, not a plugin. Calling a paid workflow without payment returns a complete x402 v2 envelope:
+
+```json
+{
+  "x402Version": 2,
+  "error": "Payment required",
+  "accepts": [{
+    "scheme": "exact",
+    "network": "eip155:8453",
+    "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "amount": "10000",
+    "payTo": "0x52a93213b2748c8121691110ffb1c9389bd22308",
+    "maxTimeoutSeconds": 300,
+    "extra": {"name": "USD Coin", "version": "2"}
+  }]
+}
+```
+
+**What's great:** No glue code needed. The 402 response is fully spec-compliant — any x402 client library can consume it directly. Payment network is Base USDC, which is exactly where agent payments should live.
+
+**Mild friction:** `amount` is in atomic units (no `decimals` field in the envelope). I had to look up that USDC has 6 decimals to confirm `10000 = $0.01`. The `extra.name` field hints at the asset but doesn't assert decimals. Adding `extra.decimals: 6` would be more self-describing.
+
+**Suggestion:** Document the `x-payment-info` OpenAPI extension somewhere prominent in the developer portal. It's a really nice pattern for declaring per-endpoint pricing in spec form, but I only discovered it by reading the raw OpenAPI.
 
 ### 2.6 Documentation gaps encountered
 *[TBD]*
