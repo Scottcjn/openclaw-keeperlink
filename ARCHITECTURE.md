@@ -1,233 +1,293 @@
-# OpenClaw KeeperLink — Architecture v3 (Planning Doc)
+# OpenClaw KeeperLink — Architecture v4
 
-**Status:** Pre-event planning artifact. NO implementation code written before Apr 24 kickoff.
+**Status:** Active build doc (Apr 25, 2026, Day 2 of ETHGlobal Open Agents).
+v3 was the pre-event planning artifact and is preserved in git history (commit `1c7ba0c` — first scaffolding). v4 incorporates Day-1/Day-2 kill-test discoveries + Codex adversarial review.
 
-**Event:** ETHGlobal Open Agents — kickoff **Apr 24, 2026 at 11:00 AM CT (16:00 UTC)**; submissions due **May 3, 2026 at 11:00 AM CT (16:00 UTC)**. Virtual, ~9.5-day build window. Source: ethglobal.com/events/openagents (slug `openagents`, uuid `y7m1f`).
-
-**Committed tracks (all four) — pool amounts verified from live event payload 2026-04-23:**
-| Sponsor | Pool (verified) | OpenClaw named? | Our fit |
-|---|---|---|---|
-| **0G** (Framework/Tooling — Track 1) | **$15,000** total sponsor pool | ✅ **VERBATIM** | Receipts persisted to 0G Storage via OpenClaw MCP tool |
-| **KeeperHub** (Focus 2) | **$5,000** pool | ✅ **VERBATIM** | OpenClaw↔KeeperHub plugin + x402 payments |
-| **Gensyn AXL** | $5,000 pool | generic | AXL P2P transport for agent mesh |
-| **Uniswap** | $5,000 pool | generic (requires FEEDBACK.md) | Uniswap API for the actual swap |
-| KeeperHub Builder Feedback Bounty | $500 (2× $250) | — | Same FEEDBACK.md satisfies both Uniswap + this |
-
-> Note: 0G's $15K is the aggregated sponsor pool. Re-verify per-track breakdown (Track 1 vs. other 0G tracks) once prize detail UI renders — the old $7,500 / $2,500-top estimate was for Track 1 only and may or may not still hold.
-
-**Direct-target sponsor pools: $30,000.** First-place ceiling on a single coherent build is higher than our earlier $10K estimate. Still not a realistic sweep target, but the fit remains structural, not forced.
-
-**Prior-art anchor:** Hubble Trading Arena (ETHGlobal Buenos Aires winner) — agent-to-agent coordination with x402 payment and real onchain execution. Same recipe, different sponsors.
-
-**Tagline (frozen):** *"Post a job over Gensyn AXL. One MCP call. KeeperHub settles onchain. Receipt back — no middlemen, no failed txs."*
+**Event:** ETHGlobal Open Agents — kickoff **Apr 24, 2026 at 11:00 AM CT**; submissions due **May 3, 2026 at 11:00 AM CT**. Solo build, ~7.5 days remaining.
 
 ---
 
-## One-loop product thesis (v3)
+## What changed v3 → v4
 
-> **Node A's OpenClaw agent pays Node B via x402 over AXL. Node B executes a real Uniswap swap on Base through KeeperHub. The receipt is simultaneously returned over AXL AND persisted to 0G Storage as a permanent, content-addressed audit record. Node A verifies both paths.**
+| Aspect | v3 (planning) | v4 (after kill-tests) |
+|---|---|---|
+| KeeperHub surface | "Direct Execution API" at `POST /api/execute/transfer` | **Workflow platform** — `/api/mcp/workflows/<slug>/call` plus 26 MCP tools including native Uniswap V3 actions |
+| x402 integration | "Bolt x402 onto KeeperHub" | **Native** — paid workflows return x402 v2 envelopes (Base USDC) directly. No glue code. |
+| Uniswap integration | Custom v4 hook OR Uniswap REST Trading API | **KeeperHub native** `uniswap/swap-exact-input` action. Optional Uniswap REST API on the side for breadth. |
+| Node B's role | Custom MCP service wrapping raw contract calls | **Remote specialist** that owns and invokes a published KeeperHub workflow |
+| AXL's role | "Encrypted P2P transport" (decorative if KeeperHub is internet-facing) | **Labor market + delegation channel** — Node B advertises capability + price over AXL; Node A *hires* over AXL |
+| 0G's role | "Persist receipt to 0G after execution" (integration) | **Standardized OpenClaw audit envelope as a reusable primitive** (framework extension) |
 
-One product. One story. **Four sponsors hit natively**, via one piece of glue code.
-
-**The five-layer agent-native stack:**
-- **Uniswap** = value movement (the actual swap)
-- **KeeperHub** = reliability (retry, gas-opt, audit, execution)
-- **AXL** = transport (P2P, encrypted, no central broker)
-- **0G Storage** = audit memory (permanent, content-addressed via Merkle root)
-- **OpenClaw** = agent framework stitching it all together
-
-Each layer is a different sponsor's product. None are redundant. The story is coherent.
+The core demo loop is unchanged — five sponsor surfaces, one coherent execution path. The implementation is significantly cleaner.
 
 ---
 
-## System diagram
+## One-loop product thesis (v4)
+
+> **Node A's OpenClaw agent hires Node B over Gensyn AXL with an x402-paid request. Node B (the remote specialist) invokes its published `keeperlink-swap` KeeperHub workflow, which executes a real Uniswap V3 swap on Base. Node B wraps the result in a standardized OpenClaw audit envelope, persists it to 0G Storage, and returns both the on-chain tx hash and the 0G Merkle root over AXL. Node A independently verifies the receipt two ways — onchain on Base and by content-address on 0G.**
+
+One product. One demo. **Five sponsor integrations** that each carry weight in the loop:
+
+- **OpenClaw** — the agent framework + the audit-envelope primitive
+- **Gensyn AXL** — the agent labor market + delegation transport
+- **KeeperHub** — workflow execution + x402 enforcement + native Uniswap V3
+- **Uniswap** — the actual swap (via KeeperHub's `uniswap/swap-exact-input` action)
+- **0G Storage** — content-addressed audit memory
+
+Removing any single layer breaks the demo. Each is real, none is decorative.
+
+---
+
+## System diagram (v4)
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│  NODE A  (Poster)                                                    │
-│                                                                      │
-│   ┌───────────────────────┐                                          │
-│   │ OpenClaw agent (Py)   │  Sophia Elya lightweight client          │
-│   │   1. builds job spec  │     "swap 5 USDC → wRTC on Base"         │
-│   │   2. signs x402 pay   │     pays Node B in USDC on Base           │
-│   └──────────┬────────────┘                                          │
-│              │ HTTP POST  /mcp/{NodeB_peerId}/keeperlink             │
-│              ▼                                                       │
-│   ┌───────────────────────┐                                          │
-│   │ AXL node (Go, :9002)  │  Yggdrasil P2P, native /mcp/ routing     │
-│   └──────────┬────────────┘                                          │
-└──────────────┼───────────────────────────────────────────────────────┘
-               │  TLS/TCP over Yggdrasil mesh (no central broker)
+┌──────────────────────────────────────────────────────────────────────────┐
+│  NODE A  (OpenClaw poster)                                               │
+│                                                                          │
+│   ┌──────────────────────┐                                               │
+│   │ OpenClaw skill (Py)  │  Sophia-persona client                        │
+│   │  1. discovers peers  │                                               │
+│   │     over AXL         │                                               │
+│   │  2. signs x402 USDC  │                                               │
+│   │  3. fires hire req   │                                               │
+│   └──────────┬───────────┘                                               │
+│              │  POST /mcp/{NodeB_peerId}/keeperlink                      │
+│              │  Body: {intent, tokenIn, tokenOut, amountIn,              │
+│              │         x402_payment_header}                              │
+│              ▼                                                           │
+│   ┌──────────────────────┐                                               │
+│   │ AXL node (Go, :9001) │  Yggdrasil P2P, encrypted, no broker          │
+│   └──────────┬───────────┘                                               │
+└──────────────┼───────────────────────────────────────────────────────────┘
+               │  TLS over Yggdrasil mesh
                ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│  NODE B  (Worker)                                                    │
-│                                                                      │
-│   ┌───────────────────────┐                                          │
-│   │ AXL node (Go, :9002)  │                                          │
-│   └──────────┬────────────┘                                          │
-│              │  envelope {"service":"keeperlink"}                    │
-│              ▼                                                       │
-│   ┌───────────────────────┐                                          │
-│   │ MCP Router (:9003)    │  dispatches by service name              │
-│   └──────────┬────────────┘                                          │
-│              ▼                                                       │
-│   ┌───────────────────────┐                                          │
-│   │ keeperlink-mcp svc    │                                          │
-│   │   3. verifies x402    │                                          │
-│   │      payment + sig    │                                          │
-│   │   4. calls KeeperHub  │ ──► KeeperHub Direct Execution API       │
-│   │      with Uniswap v4  │     (retry logic, gas opt, audit trail) │
-│   │      swap intent      │                                          │
-│   │   5. KeeperHub        │     ──► real Uniswap swap on Base        │
-│   │      executes + rtns  │         tx confirmed, receipt issued     │
-│   │      tx receipt       │                                          │
-│   └───────────────────────┘                                          │
-└──────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│  NODE B  (OpenClaw remote specialist)                                    │
+│                                                                          │
+│   ┌──────────────────────┐                                               │
+│   │ AXL node (Go, :9002) │  receives hire req                            │
+│   └──────────┬───────────┘                                               │
+│              ▼                                                           │
+│   ┌──────────────────────┐                                               │
+│   │ MCP Router (:9003)   │  routes to "keeperlink" service               │
+│   └──────────┬───────────┘                                               │
+│              ▼                                                           │
+│   ┌──────────────────────┐                                               │
+│   │ keeperlink-service   │                                               │
+│   │  4. verifies x402    │                                               │
+│   │  5. calls own KH     │ ──► KeeperHub MCP                             │
+│   │     workflow:        │     POST /api/mcp/workflows/                  │
+│   │     keeperlink-swap  │          keeperlink-swap/call                 │
+│   │                      │          (workflow id 1ao3zjcjngophp36baqht)  │
+│   │  6. workflow runs:   │                                               │
+│   │     a. quote-exact   │     ──► Uniswap V3 Quoter on Base             │
+│   │     b. swap-exact    │     ──► Uniswap V3 Router on Base             │
+│   │        (real tx)     │         tx confirmed, hash returned           │
+│   │  7. builds audit env │                                               │
+│   │  8. uploads to 0G    │ ──► 0G testnet, returns Merkle rootHash       │
+│   │  9. returns receipt  │                                               │
+│   │     over AXL         │                                               │
+│   └──────────────────────┘                                               │
+└──────────────────────────────────────────────────────────────────────────┘
                ▲
-               │  receipt: {tx_hash, audit_ref, settled_at, amount_out}
-               │  returned over same AXL request/response cycle
+               │  Receipt: {tx_hash, basescan_link, amount_out,
+               │            0g_root_hash, audit_envelope_signature}
+               │  returned over the same AXL request/response cycle
 ```
 
-Every leg is real: real x402 payment, real AXL P2P, real KeeperHub execution, real Uniswap swap, real tx hash on Base.
+Every leg is real: real x402 USDC payment, real AXL P2P, real KeeperHub workflow execution, real Uniswap V3 swap, real Base tx, real 0G content-addressed receipt.
 
 ---
 
-## Sponsor coverage (how each track gets hit)
+## Why AXL stays load-bearing
+
+The pre-pivot worry was: "if Node B just calls KeeperHub HTTPS, AXL becomes decorative — judges see unnecessary indirection."
+
+The v4 model resolves this by making **Node B the remote specialist**:
+
+- Node B owns the KeeperHub org + API key + published `keeperlink-swap` workflow
+- Node B advertises its capability + price over AXL (peer discovery + capability gossip)
+- **Node A can only access this capability by hiring Node B over AXL** — there is no direct path from "user with intent" to "KeeperHub workflow execution" without the AXL hop
+- Receipt + 0G root return over AXL, not direct HTTP
+
+AXL is the **labor market**, not a decorative transport. Drop AXL and the model collapses to "agent calls KeeperHub directly," which is just a CLI tool, not agent commerce.
+
+This also keeps our story aligned with Hubble Trading Arena (the ETHGlobal Buenos Aires winner): agent-to-agent coordination over a peer mesh with x402 settlement and real on-chain execution. Same recipe, different sponsors.
+
+---
+
+## Why 0G is a framework extension, not just an integration
+
+The 0G Track 1 prompt asks for "framework-level innovations using OpenClaw." Storing one receipt per execution is integration, not framework.
+
+Our framework-level contribution is the **OpenClaw Audit Envelope** — a standardized, signed, content-addressed proof structure that any OpenClaw agent mesh can produce and verify, with 0G Storage as the persistence backend.
+
+Schema (defined in `shared/audit_envelope.py` — see task #8):
+
+```python
+class OpenClawAuditEnvelope(BaseModel):
+    schema_version: int            # bump-only, append-compatible
+    job: JobRequest                # AXL request metadata (intent, params, poster)
+    workflow_slug: str             # KeeperHub bazaar slug invoked (e.g. "keeperlink-swap")
+    workflow_version: str | None   # workflow definition hash at invocation time
+    x402_proof: X402PaymentProof   # signed payment header + verification result
+    keeperhub_execution_id: str    # KeeperHub-assigned execution ID
+    onchain_tx_hash: str           # tx hash on the target chain
+    onchain_chain_id: int          # e.g. 8453 for Base
+    result_payload_hash: str       # blake3(canonical_json(result_data))
+    signer_address: str            # Node B's identity address
+    signature: str                 # signed: hash(envelope_minus_signature)
+    timestamp_unix: int
+```
+
+What makes this **framework-level**:
+
+1. **Reusable** — any OpenClaw agent that hires another agent can produce and verify these envelopes. Not specific to swaps, not specific to Uniswap, not specific to KeeperHub.
+2. **Verifiable independent of any single chain** — the 0G Merkle root proves the envelope existed at a specific time without trusting any particular execution path.
+3. **Composable** — envelopes can reference each other via `result_payload_hash`. Multi-step agent mesh compositions become auditable as DAGs.
+4. **0G-native** — the envelope schema is designed around 0G's content-addressed storage primitives. Mid-flight upgrades to 0G's KV store or compute layer extend the primitive without breaking the schema.
+
+This is the contribution to the framework track. The `keeperlink-swap` workflow is one example user; the envelope is the reusable primitive.
+
+---
+
+## Sponsor coverage (v4)
 
 ### Gensyn (AXL) — committed
-- **Qualification:** uses AXL for inter-node comms; runs across two separate AXL nodes; built during hackathon. ✅
-- **Depth of AXL integration:** Node A's MCP call goes through `/mcp/{peer_id}/keeperhub` — native AXL transport, no centralized broker.
-- **Non-trivial use:** not just hello-world; demonstrates agent-to-agent commerce (post → claim → execute → receipt) over P2P.
+- **Qualification:** uses AXL for inter-node comms; built during hackathon; runs across two separate AXL nodes.
+- **Depth:** AXL serves as the **agent labor market**, not just a transport hop. Node B's capability is only accessible via hiring through AXL.
+- **Non-trivial use:** capability advertisement + x402-paid hire + receipt return all over the AXL mesh.
 
-### KeeperHub (Focus 2, OpenClaw integration + payments) — committed
-- **Focus 2 hits BOTH sub-angles in one build:**
-  1. *Agent framework integration:* OpenClaw is verbatim in rubric — `keeperlink-mcp` is the integration.
-  2. *Payments:* x402 is verbatim in rubric — Node A's payment to Node B uses x402.
-- **Depth of integration (two surfaces touched):**
-  1. **Direct Execution API** (`POST /api/execute/contract-call`) — Node B's worker agent calls this with Uniswap Router ABI + `exactInputSingle` args. KeeperHub auto-fetches ABI from basescan, executes synchronously, returns `transactionHash` + ready-made `transactionLink`. Receipt goes back over AXL.
-  2. **KeeperHub MCP server** (hosted at `https://app.keeperhub.com/mcp`) — Node B also connects via `claude mcp add --transport http keeperhub ...`. Demoable tools: `ai_generate_workflow` (natural-language intent → workflow), `execute_workflow`, `get_execution_logs`. Allows intent-mode demo as an alternative to raw ABI calls.
-- **Wallet model:** KeeperHub-managed via Para or Turnkey integration (MPC). Spending caps configurable per-org. No raw key handling in our code.
-- **Native plugins leveraged:** Uniswap plugin + Aerodrome plugin both first-class — no custom swap router logic needed.
-- **Real utility:** reliable onchain actions with retry/gas/private-routing/audit inherited from KeeperHub.
-- **Mergeable code:** clean README, typed interfaces, working example, live on Base.
+### KeeperHub (Focus 2: OpenClaw integration + payments) — committed
+- **Both rubric items hit:**
+  1. **OpenClaw integration:** `keeperlink-service` on Node B is an OpenClaw skill that wraps KeeperHub's MCP server. Demonstrable end-to-end.
+  2. **Payments:** native x402 USDC on Base — paid workflows return x402 v2 envelopes; Node A signs and pays. No third-party x402 gateway.
+- **Depth (multiple surfaces touched):**
+  - **MCP `ai_generate_workflow`** — natural language → workflow definition. Demoable.
+  - **MCP `create_workflow`** — persists workflow to org. *Done Apr 25.*
+  - **MCP `execute_protocol_action`** — direct execution path; useful as fallback or for the quote step. *Validated Apr 25.*
+  - **REST `/api/mcp/workflows/<slug>/call`** — bazaar invocation surface. Path A pattern.
+  - **Native plugins** — `uniswap/swap-exact-input`, `uniswap/quote-exact-input` — both validated.
+- **Wallet model:** KeeperHub-managed (Turnkey MPC). Spending caps configurable. No raw key handling on our side.
+- **Real utility:** retry, gas-opt, audit, private mempool inherited from KeeperHub.
 
-### Uniswap Foundation — COMMITTED
-- **Criteria (published):** "Best Uniswap API Integration — give your agent the ability to swap and settle value onchain." $2,500 / $1,500 / $1,000.
-- **Qualification:** MUST include `FEEDBACK.md` in repo root covering builder experience. Missing file = disqualified.
-- **Scope:** Uniswap API for the swap (NOT a custom v4 hook — simpler than our earlier assumption).
-- **Execution path:** KeeperHub's Uniswap plugin invokes the swap; our agent code also references Uniswap's SDK/API directly so integration depth shows on Uniswap's side too.
+### Uniswap Foundation — committed
+- **Criteria:** "Best Uniswap API Integration — give your agent the ability to swap and settle value onchain." $2,500 / $1,500 / $1,000.
+- **Required:** `FEEDBACK.md` in repo root. *Drafted Apr 25, ongoing log.*
+- **Path:** KeeperHub's `uniswap/quote-exact-input` + `uniswap/swap-exact-input` actions natively wrap Uniswap V3. Quote validated on Base USDC→WETH 0.05% fee tier on Apr 25. Swap path validated next once Base wallet is funded (Apr 26 morning).
 
-### 0G Track 1 "Best Agent Framework, Tooling & Core Extensions" — COMMITTED (promoted from opportunistic)
-- **Criteria (published):** "Framework-level innovations using **OpenClaw** or alternatives on 0G." Prize breakdown: $2,500 / $2,000 / $1,500 / $1,000 / $500.
-- **Qualification:** Project name, GitHub repo, demo video (<3min), deployment addresses, "at least one working example agent."
-- **Our framework contribution:** OpenClaw MCP tool `keeperlink-receipt` that persists any agent execution receipt to 0G Storage and returns the Merkle rootHash. Reusable by any OpenClaw agent mesh — this IS the framework-level extension.
-- **SDK:** `@0gfoundation/0g-ts-sdk` (TypeScript). Upload `MemData` → `merkleTree` → `indexer.upload` → returns `rootHash`. Auth is blockchain-based (signer + RPC + indexer RPC) — no API key.
-- **Why this wins the framework track:** we're not just using 0G, we're extending OpenClaw with a 0G-backed audit primitive that any OpenClaw agent can inherit. That's a core-extension contribution, not a one-off integration.
+### 0G Track 1 (Best Agent Framework, Tooling & Core Extensions) — committed
+- **Criteria:** "Framework-level innovations using OpenClaw or alternatives on 0G."
+- **Our framework contribution:** the OpenClaw Audit Envelope (above). Reusable across any OpenClaw agent mesh. Any agent that completes a hired job produces and persists one. Verification primitive that doesn't depend on any specific execution path.
+- **SDK:** `@0gfoundation/0g-ts-sdk` (TypeScript). Upload `MemData` → `merkleTree` → `indexer.upload` → returns `rootHash`. Auth is signer + RPC + indexer RPC; no API key needed.
+- **Why this wins framework track:** we're extending OpenClaw with a 0G-backed audit primitive, not just persisting a receipt. The schema, the verifier, and the reusable Pydantic model are the framework-level contribution.
 
-### Builder Feedback Bounty (KeeperHub, $500 bonus) — committed
-- One `FEEDBACK.md` at repo root satisfies BOTH Uniswap qualification AND this bonus.
-- Structure: section 1 = Uniswap integration friction, section 2 = KeeperHub integration friction. Honest, specific, reproducible.
+### KeeperHub Builder Feedback Bounty — committed
+- One `FEEDBACK.md` satisfies both Uniswap qualification AND this bonus.
+- Section 1 = Uniswap integration friction (DX with KeeperHub's wrapped surface vs direct Trading API).
+- Section 2 = KeeperHub integration friction (the `Direct Execution API` doc-vs-reality gap, the bazaar listing UX gap, the ai_generate_workflow output template gaps).
 - Up to 2 winners receive $250 each.
 
 ---
 
-## Repo layout (to be created Apr 24)
+## Repo layout (current)
 
-**Key pattern decision:** mirror Gensyn's own `collaborative-autoresearch-demo` structure by shipping the poster-side integration as a **Claude Code skill** at `skills/openclaw-keeperlink/`. Their official demo uses this pattern; we match it for sponsor-alignment signal.
+Already scaffolded Apr 25. Diff-from-plan: docker-compose stub is minimal until both services have working entrypoints. CI is `ruff` + `mypy --strict shared/`.
 
 ```
 openclaw-keeperlink/
 ├── README.md
-├── ARCHITECTURE.md          (this doc, refined)
-├── LICENSE
-├── docker-compose.yml       (spins up both nodes locally for judges)
-├── .env.example
+├── ARCHITECTURE.md          (this doc)
+├── FEEDBACK.md              (Uniswap qual + KH bonus, ongoing log)
+├── LICENSE                  (MIT)
+├── docker-compose.yml       (two-node local stack)
+├── .env.example             (all five sponsor surfaces)
+├── .gitignore               (excludes .env, keys, ~/.config/keeperhub)
 │
-├── skills/openclaw-keeperlink/   # Claude Code skill (Gensyn-demo-style)
-│   ├── SKILL.md                   # frontmatter: post-job | check-receipts | status
-│   └── keeperlink_client.py       # AXL+x402+KeeperHub glue, non-fatal network calls
+├── skills/openclaw-keeperlink/
+│   ├── SKILL.md             (frontmatter: post-job, status, check-receipts, verify)
+│   └── keeperlink_client.py (subcommand dispatch)
 │
-├── node-a/                  (poster)
-│   ├── axl-config.json      (AXL node config)
-│   └── start.sh             (launches AXL node + registers skill)
+├── node-a/
+│   └── poster.py            (Sophia-persona poster client)
 │
-├── node-b/                  (worker)
-│   ├── axl-config.json
-│   ├── keeperhub_mcp/       (MCP service exposing KeeperHub tools)
-│   │   ├── server.py        (registers "keeperlink" w/ MCP router)
-│   │   └── __init__.py
-│   └── start.sh             (launches AXL node + router + mcp service)
+├── node-b/
+│   └── keeperlink_service.py (MCP service that hosts the keeperlink AXL endpoint)
 │
 ├── shared/
-│   ├── schemas.py           (job + receipt Pydantic models)
-│   └── wallets.py           (Base chain wallet helpers, x402 verify)
+│   ├── schemas.py           (JobRequest, Receipt, AuditEntry — Pydantic v2)
+│   ├── audit_envelope.py    (OpenClaw Audit Envelope — TBD task #8)
+│   ├── x402.py              (sign + verify x402 v2)
+│   ├── keeperhub.py         (MCP session + workflow execution)
+│   ├── uniswap.py           (optional — Trading API direct calls for breadth)
+│   ├── zerog.py             (upload + download via 0G TS SDK helper)
+│   └── axl_client.py        (AXL HTTP wrapper, hire + capability gossip)
 │
-└── docs/
-    ├── demo.md              (judge-facing demo script + tx-link verifier)
-    ├── feedback.md          (running log for Builder Feedback Bounty)
-    └── screenshots/
+├── scripts/
+│   ├── sanity-check.sh      (pass/fail on each integration in isolation)
+│   └── zerog_helper.js      (TS bridge for 0G SDK — TBD)
+│
+├── docs/
+│   ├── demo.md              (judge-facing 30-second walkthrough)
+│   ├── kill-tests/
+│   │   ├── keeperhub-day1.md
+│   │   ├── uniswap-day1.md
+│   │   └── workflow-publishing-day2.md
+│   └── screenshots/         (basescan tx, 0G rootHash, split-terminal frames)
+│
+└── .github/workflows/ci.yml
 ```
-
-**Invocation pattern** (judges see this in the demo):
-```bash
-/openclaw-keeperlink status       # confirms AXL connectivity + KeeperHub auth
-/openclaw-keeperlink post-job --intent "swap 5 USDC to wRTC"
-/openclaw-keeperlink check-receipts
-```
-
-**Non-fatal philosophy** (copied from Gensyn's demo): if AXL is down or peer unreachable, agent logs and continues. If KeeperHub retry budget exhausted, surface the audit ref and abort cleanly. No crashes mid-demo.
 
 ---
 
-## Build sequencing (compressed 9.5-day window)
+## Build sequencing — revised after Day 2
 
-Revised 2026-04-23 after pulling authoritative event times. Prior draft assumed May 6 23:59 CT submission (13-day window) — reality is **May 3 11:00 AM CT (9.5 days)**. Optional "IF favorable" branches for Uniswap v4 hook and 0G polish are **dropped** — they are now core, not stretch.
+Original plan (v3) put Day 1 as four isolated kill-tests. We're a day late; Days 1-2 collapsed into today (Apr 25). Revised remaining schedule:
 
 | Day | Date (CT) | Goal | Risk kill-check |
 |-----|-----------|------|-----------------|
-| **Day 1** | Thu Apr 24 (11 AM kickoff → eod) | Four isolated kill-tests green by EOD: (1) 2× AXL nodes + cross-node MCP, (2) KeeperHub hello-world with real Base tx, (3) Uniswap `/quote` round-trip, (4) 0G upload + rootHash fetch. | Any of the 4 not green → narrow sponsor tracks accordingly before Day 2 wiring. |
-| **Day 2** | Fri Apr 25 | Node A → Node B over AXL MCP works end-to-end. Structured job payload arrives at Node B, logged. | If AXL dispatch flaky, fix before any further integration. |
-| **Day 3** | Sat Apr 26 | Node B calls KeeperHub Direct Execution with Uniswap swap params, tx confirmed on Base. Receipt returns over AXL. | First green loop = MVP demoable. Stop here if later days derail. |
-| **Day 4** | Sun Apr 27 | x402 payment integrated — unpaid calls rejected, paid calls execute. | If x402 blocked, fall back to signed-message auth for demo (lose payments angle on KeeperHub rubric). |
-| **Day 5** | Mon Apr 28 | 0G Storage receipt persistence + Node A round-trip verify (on-chain + content-addressed). | Full 5-layer story complete. |
-| **Day 6** | Tue Apr 29 | Polish: error handling, docker-compose for judges, 5× clean end-to-end run reproducibility. | Must be able to demo blind at least once. |
-| **Day 7** | Wed Apr 30 | Demo video (3 min), asciinema captures, thumbnail, transcript. | |
-| **Day 8** | Thu May 1 | README, ARCHITECTURE, FEEDBACK.md drafts done. | |
+| ~~Day 1~~ | Apr 24 | Skipped | (rolled into Day 2) |
+| **Day 2** | **Apr 25** | ✅ Repo skeleton + KeeperHub + Uniswap quote + workflow author paths green. ARCHITECTURE v4 + audit envelope schema drafted. | KeeperHub *and* workflow paths confirmed green. |
+| **Day 3** | Sat Apr 26 | Fund Base wallet (0.01 ETH + 5-10 USDC). Run real `uniswap/swap-exact-input` via published workflow. AXL kill-test on two local nodes. 0G testnet upload + verify. | First real on-chain swap = MVP demoable. |
+| **Day 4** | Sun Apr 27 | x402 sign + verify on the AXL hire path. Bazaar listing UX figured out. | x402 + bazaar listing unblock the published-workflow demo. |
+| **Day 5** | Mon Apr 28 | Wire all five layers end-to-end. First clean dry-run reproducing in 30 seconds. 0G round-trip verify. | Full 5-layer demo loop closes. |
+| **Day 6** | Tue Apr 29 | Polish: error handling, docker-compose for judges, 5× clean reproducibility. | Demo blind at least once. |
+| **Day 7** | Wed Apr 30 | Demo video (3 min) recorded. Asciinema captures. Thumbnail. | |
+| **Day 8** | Thu May 1 | README final polish, ARCHITECTURE v5 freeze, FEEDBACK final. | |
 | **Day 9** | Fri May 2 | Buffer: last-mile fixes from dry-run feedback, final submission artifacts staged. | Anything still failing → cut it. |
 | **Morning Day 10** | **Sat May 3 (by 11 AM CT)** | **Submit.** File KeeperHub + Uniswap feedback-bounty entries. | **Hard deadline.** |
 
 ---
 
-## Anti-scope-creep list (Codex's scope-kill warning)
+## Anti-scope-creep (carried forward from v3)
 
-**We will NOT build:**
-- Custom wallet orchestration beyond Coinbase Agentic Wallet defaults
+We will NOT build:
+- Custom wallet orchestration (KeeperHub Turnkey MPC handles it)
 - Multi-agent personality sandbox (no Sophia/Boris show-reel)
-- A dashboard or frontend UI (CLI or terminal output suffices)
+- Dashboard / frontend UI (CLI is the demo)
 - Marketplace front-end (RIP-302 stays in RustChain, not ported)
-- Novel cryptography / fingerprinting layers (RIP-PoA stays out)
+- Novel cryptography / fingerprinting (RIP-PoA stays out)
 - Pre-hackathon implementation (all submitted code Apr 24+)
 
-**Justification:** One end-to-end commercial interaction beats a "world model" with no crisp demo. Judges reward depth over breadth.
+**Carried from Codex review:** also will NOT make both A→B and B→KeeperHub payment hops demo-critical. One visible x402 payment is enough for judges.
 
 ---
 
-## Judge-day headlines (frozen after 2x Grok adversarial review)
-
-**Primary (everyone):** *"Post a job over Gensyn AXL. One MCP call. KeeperHub settles onchain. Receipt back — no middlemen, no failed txs."*
-
-**Nasdaq-judge lens (Mel K):** *"Agent payment rails that actually settle — retry-safe, gas-optimized, audit-traceable. Same recipe as Hubble Trading Arena, production-hardened."*
-
-**Flow-judge lens (Patrick Fuchs):** *"Decentralized agent labor market. Real job posting, real payment, real swap, real receipt. Solo build."*
-
-~~"MCP-everywhere vision"~~ — killed. Buzzword salad.
-
 ## Demo visual (frozen)
 
-Split-screen terminal recording:
-- **Left pane:** Node A logs — job built, x402 paid, AXL call fired
-- **Right pane:** Node B logs — received, verified, KeeperHub dispatched, tx hash emitted
-- **Overlay:** live Base tx link + "settled in X seconds, 0 failures"
-- 30-second loop. Non-Ethereum viewer understands instantly.
+Split-screen terminal:
 
-No UI. No dashboard. No animation. The CLI IS the story.
+- **Left pane:** Node A — capability discovery over AXL → x402 USDC sign → AXL hire fired
+- **Right pane:** Node B — AXL hire received → x402 verified → KeeperHub workflow invoked → tx hash emitted → audit envelope built → 0G uploaded → receipt returned
+- **Overlay:** live Base tx link on basescan + "settled in X seconds, 0 failures"
+
+30-second loop. No UI. No dashboard. Non-Ethereum viewer understands instantly.
+
+---
+
+## Reference
+
+- ETHGlobal Open Agents: https://ethglobal.com/events/openagents
+- Prior art: Hubble Trading Arena (ETHGlobal Buenos Aires winner)
+- Codex adversarial review: invoked Apr 25; surfaced Path B as submission core, AXL as labor market, audit envelope as 0G framework angle.
+- Day-1/Day-2 kill-test transcripts: `docs/kill-tests/`
