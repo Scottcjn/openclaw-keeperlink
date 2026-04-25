@@ -1,0 +1,9 @@
+{
+  "PrivateKeyPath": "/keys/private.pem",
+  "Peers": [],
+  "Listen": ["tls://0.0.0.0:9001"],
+  "bridge_addr": "0.0.0.0",
+  "api_port": 9002,
+  "router_addr": "http://node-b-mcp-router",
+  "router_port": 9003
+}

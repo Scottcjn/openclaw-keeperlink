@@ -1,41 +1,47 @@
 # OpenClaw KeeperLink — local two-node demo
 #
-# Spins up Node A (poster) and Node B (worker) in separate containers,
-# joined over a private bridge network so AXL P2P routing stays local.
+# Node A (poster) and Node B (worker, the remote specialist) each run an AXL
+# daemon. Node B *listens* on tls://0.0.0.0:9001 inside the container; Node A
+# *peers out* to Node B by container DNS name. Both nodes' local HTTP API is
+# exposed to the host so demo scripts can hit them.
 #
-# Judges:
-#   docker compose up
-#   ...watch both panes; demo completes in ~30 seconds.
-#
-# This is a stub for Day 1. Fleshed out as services come online.
+# Node B also runs an MCP router sidecar (`node-b-mcp-router`) which the AXL
+# daemon delegates inbound MCP envelopes to. The sidecar registers an `echo`
+# service with itself on startup — that's the Day-2 kill-test target.
 
 services:
-  node-a:
-    build:
-      context: .
-      dockerfile: node-a/Dockerfile
-    container_name: openclaw-node-a
-    env_file: .env
-    ports:
-      - "9001:9001"  # AXL P2P (Node A)
+  node-b-mcp-router:
+    build: ./node-b/mcp_sidecar
+    container_name: openclaw-node-b-mcp-router
     networks:
       - keeperlink
-    depends_on:
-      - node-b
-    command: ["python", "-u", "node-a/poster.py"]
 
   node-b:
-    build:
-      context: .
-      dockerfile: node-b/Dockerfile
+    image: axl-node:dev
     container_name: openclaw-node-b
-    env_file: .env
+    volumes:
+      - ./node-b/private.pem:/keys/private.pem:ro
+      - ./node-b/axl-config.json:/app/node-config.json:ro
     ports:
-      - "9002:9002"  # AXL P2P (Node B)
-      - "9003:9003"  # MCP router
+      - "127.0.0.1:9112:9002"   # Host:9112 -> Node B's local AXL API
+      - "127.0.0.1:9101:9001"   # Host:9101 -> Node B's listen port (debug)
+    depends_on:
+      - node-b-mcp-router
     networks:
       - keeperlink
-    command: ["python", "-u", "node-b/keeperlink_service.py"]
+
+  node-a:
+    image: axl-node:dev
+    container_name: openclaw-node-a
+    volumes:
+      - ./node-a/private.pem:/keys/private.pem:ro
+      - ./node-a/axl-config.json:/app/node-config.json:ro
+    ports:
+      - "127.0.0.1:9111:9002"   # Host:9111 -> Node A's local AXL API
+    depends_on:
+      - node-b
+    networks:
+      - keeperlink
 
 networks:
   keeperlink:
