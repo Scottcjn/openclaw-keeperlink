@@ -1,48 +1,143 @@
-"""0G Storage wrapper.
+"""0G Storage wrapper — Python ↔ TypeScript bridge.
 
-The official SDK is `@0gfoundation/0g-ts-sdk` (TypeScript). For Day-1 we
-shell out to a Node.js helper script — same as the reference flow:
+The official 0G SDK is `@0gfoundation/0g-ts-sdk` (Node.js). We talk to it via
+`scripts/zerog/zerog_helper.mjs` over a single-shot subprocess with stdin/stdout
+JSON, which keeps the integration boundary tiny and avoids a long-lived bridge
+process.
 
-    upload(blob_bytes) -> rootHash
-    download(rootHash) -> blob_bytes
+Three modes:
 
-The helper lives at `scripts/zerog_helper.js` (Node) and exposes a
-two-command stdin/stdout protocol so we don't need a Python ⇄ TS bridge.
+- `merkle_root(blob)` → root_hash (offline; no RPC, no signer, no gas)
+- `upload(blob)` → (root_hash, tx_hash) (requires funded testnet wallet)
+- `download(root_hash)` → blob
 
-Day-1 stub. Lit up once task #4 (0G testnet upload kill-test) passes.
+`merkle_root` is what we use for *log-line traces* and *envelope previews* —
+the rootHash is the same the indexer will return on upload, so log lines are
+correlatable across the persistence boundary before persistence completes.
 """
 from __future__ import annotations
 
+import base64
+import json
 import os
+import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 
 
-@dataclass
+# Helper script — repo-relative
+_HELPER = Path(__file__).resolve().parent.parent / "scripts" / "zerog" / "zerog_helper.mjs"
+
+DEFAULT_EVM_RPC = "https://evmrpc-testnet.0g.ai"
+DEFAULT_INDEXER_RPC = "https://indexer-storage-testnet-turbo.0g.ai"
+
+
+@dataclass(frozen=True)
 class ZeroGConfig:
-    private_key: str
-    rpc_url: str
-    indexer_url: str
+    private_key: str | None
+    evm_rpc: str
+    indexer_rpc: str
 
     @classmethod
     def from_env(cls) -> "ZeroGConfig":
         return cls(
-            private_key=os.environ.get("ZEROG_PRIVATE_KEY", ""),
-            rpc_url=os.environ.get("ZEROG_RPC_URL", "https://evmrpc-testnet.0g.ai"),
-            indexer_url=os.environ.get(
-                "ZEROG_INDEXER_URL",
-                "https://indexer-storage-testnet-turbo.0g.ai",
-            ),
+            private_key=os.environ.get("ZEROG_PRIVATE_KEY") or None,
+            evm_rpc=os.environ.get("ZEROG_RPC_URL", DEFAULT_EVM_RPC),
+            indexer_rpc=os.environ.get("ZEROG_INDEXER_URL", DEFAULT_INDEXER_RPC),
         )
 
 
-class ZeroGClient:
-    """Day-1 placeholder. Methods raise NotImplementedError until kill-test passes."""
+@dataclass(frozen=True)
+class UploadResult:
+    root_hash: str
+    tx_hash: str
+    bytes_uploaded: int
 
-    def __init__(self, config: ZeroGConfig | None = None):
-        self.config = config or ZeroGConfig.from_env()
 
-    def upload(self, blob: bytes) -> str:  # noqa: ARG002
-        raise NotImplementedError("0G upload comes online after task #4.")
+class ZeroGError(RuntimeError):
+    pass
 
-    def download(self, root_hash: str) -> bytes:  # noqa: ARG002
-        raise NotImplementedError("0G download comes online after task #4.")
+
+def _call_helper(cmd: dict, timeout_s: float = 60.0) -> dict:
+    """Send a JSON command to zerog_helper.mjs and parse the JSON response.
+
+    The helper exits with code 0 on success, 1 on failure. On failure, stdout
+    contains `{"error": "..."}` which we surface as a ZeroGError.
+    """
+    if not _HELPER.exists():
+        raise ZeroGError(f"helper script not found: {_HELPER}")
+    proc = subprocess.run(
+        ["node", str(_HELPER)],
+        input=json.dumps(cmd).encode("utf-8"),
+        capture_output=True,
+        timeout=timeout_s,
+        check=False,
+    )
+    raw = proc.stdout.decode().strip()
+    if not raw:
+        stderr = proc.stderr.decode().strip()
+        raise ZeroGError(f"helper produced no output (exit={proc.returncode}, stderr={stderr!r})")
+    try:
+        result = json.loads(raw.splitlines()[-1])
+    except json.JSONDecodeError as e:
+        raise ZeroGError(f"helper produced non-JSON output: {raw!r} ({e})")
+    if "error" in result:
+        raise ZeroGError(f"helper failed: {result['error']}")
+    if proc.returncode != 0:
+        raise ZeroGError(f"helper exited {proc.returncode}: {result}")
+    return result
+
+
+# ───────────────────────── public API ─────────────────────────
+
+
+def merkle_root(blob: bytes) -> str:
+    """Compute the 0G Merkle rootHash for a blob *offline*.
+
+    No RPC, no signer, no gas. Useful for previewing what the indexer will
+    return, and for log-line correlation before persistence completes.
+    """
+    result = _call_helper({"op": "merkle_root", "data_b64": base64.b64encode(blob).decode()})
+    return result["root_hash"]
+
+
+def wallet_info(config: ZeroGConfig | None = None) -> dict:
+    """Get balance + chain ID for the configured wallet."""
+    cfg = config or ZeroGConfig.from_env()
+    if not cfg.private_key:
+        raise ZeroGError("ZEROG_PRIVATE_KEY not set")
+    return _call_helper(
+        {"op": "wallet_info", "private_key": cfg.private_key, "evm_rpc": cfg.evm_rpc}
+    )
+
+
+def upload(blob: bytes, config: ZeroGConfig | None = None) -> UploadResult:
+    """Upload bytes to 0G Storage. Requires funded testnet wallet."""
+    cfg = config or ZeroGConfig.from_env()
+    if not cfg.private_key:
+        raise ZeroGError("ZEROG_PRIVATE_KEY not set — fund testnet wallet first")
+    result = _call_helper(
+        {
+            "op": "upload",
+            "data_b64": base64.b64encode(blob).decode(),
+            "private_key": cfg.private_key,
+            "evm_rpc": cfg.evm_rpc,
+            "indexer_rpc": cfg.indexer_rpc,
+        },
+        timeout_s=180.0,
+    )
+    return UploadResult(
+        root_hash=result["root_hash"],
+        tx_hash=result["tx_hash"],
+        bytes_uploaded=result["bytes_uploaded"],
+    )
+
+
+def download(root_hash: str, config: ZeroGConfig | None = None) -> bytes:
+    """Fetch bytes from 0G Storage by Merkle rootHash."""
+    cfg = config or ZeroGConfig.from_env()
+    result = _call_helper(
+        {"op": "download", "root_hash": root_hash, "indexer_rpc": cfg.indexer_rpc},
+        timeout_s=120.0,
+    )
+    return base64.b64decode(result["data_b64"])
