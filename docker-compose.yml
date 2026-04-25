@@ -1,0 +1,42 @@
+# OpenClaw KeeperLink — local two-node demo
+#
+# Spins up Node A (poster) and Node B (worker) in separate containers,
+# joined over a private bridge network so AXL P2P routing stays local.
+#
+# Judges:
+#   docker compose up
+#   ...watch both panes; demo completes in ~30 seconds.
+#
+# This is a stub for Day 1. Fleshed out as services come online.
+
+services:
+  node-a:
+    build:
+      context: .
+      dockerfile: node-a/Dockerfile
+    container_name: openclaw-node-a
+    env_file: .env
+    ports:
+      - "9001:9001"  # AXL P2P (Node A)
+    networks:
+      - keeperlink
+    depends_on:
+      - node-b
+    command: ["python", "-u", "node-a/poster.py"]
+
+  node-b:
+    build:
+      context: .
+      dockerfile: node-b/Dockerfile
+    container_name: openclaw-node-b
+    env_file: .env
+    ports:
+      - "9002:9002"  # AXL P2P (Node B)
+      - "9003:9003"  # MCP router
+    networks:
+      - keeperlink
+    command: ["python", "-u", "node-b/keeperlink_service.py"]
+
+networks:
+  keeperlink:
+    driver: bridge
