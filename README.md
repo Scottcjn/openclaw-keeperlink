@@ -5,8 +5,8 @@
 **Built for:** [ETHGlobal Open Agents](https://ethglobal.com/events/openagents) — Apr 24 → May 3, 2026
 **Author:** [Scott Boudreaux](https://github.com/Scottcjn) / Elyan Labs (solo build)
 **Demo video:** _link to be added at submission time_
-**Live Base Sepolia tx (sample):** _to be added at submission time after demo run_
-**0G receipt rootHash (sample):** _to be added at submission time after demo run_
+**Live Base mainnet tx (sample):** [`0xeb85abefaf5c7da435c9c32090469d388493a0894c2a41b51178e5ce41345f32`](https://basescan.org/tx/0xeb85abefaf5c7da435c9c32090469d388493a0894c2a41b51178e5ce41345f32) — block 45453249
+**0G receipt rootHash (sample):** `0xa45c313d03fec00119069838e91f9e52f6f8f578174a7e72e779e7b1aaaba871` (Galileo testnet, downloaded + content-matched + signature-verified by demo orchestrator)
 
 ---
 
@@ -126,13 +126,15 @@ Demo orchestrator output (left pane = Node A poster, right pane = Node B service
    ◢█▆◣ ←  block confirmed   ★ COIN!
 
   [5] Receipt received
-        tx_hash       : 0xA1b2c3...
-        basescan_link : https://basescan.org/tx/0xA1b2c3...
-        0G rootHash   : 0xf00dd00d...
+        tx_hash       : 0xeb85abef...41345f32
+        basescan_link : https://basescan.org/tx/0xeb85abef...41345f32
+        0G rootHash   : 0xa45c313d...aaaba871
 
   [6] Round-trip verify (onchain + 0G)
-      0G download   : ✓ (847 bytes)
-      sig integrity : ✓
+      0G download   : ✓ (3252 bytes)
+      content match : ✓
+      signature     : ✓
+      Base confirm  : ✓ block 45453249
 
   ─ Demo complete. ─
 ```
