@@ -20,6 +20,19 @@ import httpx
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
+
+# Auto-load .env so cloners running `python3 scripts/run_demo.py` after
+# `cp .env.example .env` work without exporting variables manually. Minimal
+# parser so we don't pull in python-dotenv as a runtime dep.
+_ENV_PATH = REPO_ROOT / ".env"
+if _ENV_PATH.exists():
+    for _raw in _ENV_PATH.read_text().splitlines():
+        _line = _raw.strip()
+        if not _line or _line.startswith("#") or "=" not in _line:
+            continue
+        _k, _v = _line.split("=", 1)
+        os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
+
 from shared.audit_envelope import (  # noqa: E402
     OpenClawAuditEnvelope,
     canonical_json_bytes,
@@ -271,7 +284,12 @@ else:
 DEMO_INTENT = os.environ.get("DEMO_INTENT", "swap 5 USDC for WETH on Base")
 DEMO_TOKEN_IN = os.environ.get("DEMO_TOKEN_IN", DEFAULT_USDC_ADDR)
 DEMO_TOKEN_OUT = os.environ.get("DEMO_TOKEN_OUT", "0x4200000000000000000000000000000000000006")
-DEMO_AMOUNT_IN = os.environ.get("DEMO_AMOUNT_IN", "5000000")
+# Accept both DEMO_AMOUNT_IN (canonical, human units) and DEMO_AMOUNT_IN_USDC
+# (the friendly alias used in .env.example). Default 0.1 USDC = ~$0.10/run.
+DEMO_AMOUNT_IN = os.environ.get(
+    "DEMO_AMOUNT_IN",
+    os.environ.get("DEMO_AMOUNT_IN_USDC", "0.1"),
+)
 POSTER_ADDR = os.environ.get("POSTER_ADDRESS", "0x46b26446ad47eF5230357A19E125323bb7FeC2A6")
 
 
