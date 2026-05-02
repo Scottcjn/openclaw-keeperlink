@@ -5,7 +5,7 @@
 **Built for:** [ETHGlobal Open Agents](https://ethglobal.com/events/openagents) — Apr 24 → May 3, 2026
 **Author:** [Scott Boudreaux](https://github.com/Scottcjn) / Elyan Labs (solo build)
 **Demo video:** _link to be added at submission time_
-**Live Base tx (sample):** _to be added at submission time after demo run_
+**Live Base Sepolia tx (sample): _to be added at submission time after demo run_
 **0G receipt rootHash (sample):** _to be added at submission time after demo run_
 
 ---
@@ -81,9 +81,9 @@ Demo completes in ~30 seconds. You'll see a **5-layer cascade animation** light 
 |---|---|
 | `KEEPERHUB_API_KEY` | [app.keeperhub.com](https://app.keeperhub.com) → Settings → API Keys (`kh_` prefix, 32 chars) |
 | `UNISWAP_API_KEY` | [developers.uniswap.org/dashboard](https://developers.uniswap.org/dashboard) (optional — KeeperHub wraps Uniswap natively, but the env var is here in case you want to hit the standalone Trading API) |
-| `ZEROG_PRIVATE_KEY` | Any Ethereum private key funded on [0G Galileo testnet](https://faucet.0g.ai) (~0.1 OG is plenty for many demo uploads) |
+| `ZEROG_PRIVATE_KEY` | Any Ethereum private key funded on Base Sepolia (Coinbase faucet) + 0G Galileo testnet(https://faucet.0g.ai) (~0.1 OG is plenty for many demo uploads) |
 | `NODE_B_PRIVATE_KEY` | Node B's identity key for signing audit envelopes. Generate with `python3 -c "from eth_account import Account; print('0x' + Account.create('node-b').key.hex())"` |
-| `BASE_RPC_URL` | Default: `https://mainnet.base.org` (free public RPC) |
+| `BASE_RPC_URL` | Default: `https://sepolia.base.org` (free public RPC) |
 
 The KeeperHub-managed wallet (Turnkey MPC) needs ~$10 USDC + ~$3 ETH on Base for the actual swap demo. Find your org's wallet address in the KeeperHub dashboard; fund it via a centralized exchange (Coinbase Base withdraw is direct).
 
