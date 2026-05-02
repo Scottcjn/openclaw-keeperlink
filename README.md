@@ -113,7 +113,7 @@ Demo orchestrator output (left pane = Node A poster, right pane = Node B service
       intent : swap 5 USDC for WETH on Base
 
   [3] Sign x402 fallback payment header
-      asset   : 0x833589fC...  amount: 10000 atomic
+      asset   : 0x036CbD53...  amount: 10000 atomic
       payer   : 0x46b26446...
       sig     : 0x6d47b1331f771ca9...
 

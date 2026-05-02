@@ -75,11 +75,20 @@ CRAWFISH_FRAMES = [
         "  ╲┳┳╱ ",
     ]),
 ]
+BASE_CHAIN_ID = int(os.environ.get("BASE_CHAIN_ID", "8453"))
+_IS_SEPOLIA = BASE_CHAIN_ID == 84532
+DEFAULT_BASE_RPC = "https://sepolia.base.org" if _IS_SEPOLIA else "https://mainnet.base.org"
+DEFAULT_USDC_ADDR = (
+    "0x036CbD53842c5426634e7929541eC2318f3dCF7e" if _IS_SEPOLIA
+    else "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+)
+
 TOKEN_META = {
     "usdc": ("USDC", 6),
     "weth": ("WETH", 18),
     "eth": ("WETH", 18),
     "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": ("USDC", 6),
+    "0x036cbd53842c5426634e7929541ec2318f3dcf7e": ("USDC", 6),
     "0x4200000000000000000000000000000000000006": ("WETH", 18),
 }
 
@@ -158,7 +167,7 @@ def _proof_badge(rows: list[tuple[str, bool]]) -> None:
 
 def _rpc_call(method: str, params: list[Any]) -> Any:
     resp = httpx.post(
-        os.environ.get("BASE_RPC_URL", "https://mainnet.base.org"),
+        os.environ.get("BASE_RPC_URL", DEFAULT_BASE_RPC),
         json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params},
         timeout=15.0,
     )
@@ -260,7 +269,7 @@ else:
     NODE_B_URL = os.environ.get("KEEPERLINK_DIRECT_HTTP_URL", "http://127.0.0.1:9004/keeperlink")
     TRANSPORT = "Direct HTTP (Path B)"
 DEMO_INTENT = os.environ.get("DEMO_INTENT", "swap 5 USDC for WETH on Base")
-DEMO_TOKEN_IN = os.environ.get("DEMO_TOKEN_IN", "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913")
+DEMO_TOKEN_IN = os.environ.get("DEMO_TOKEN_IN", DEFAULT_USDC_ADDR)
 DEMO_TOKEN_OUT = os.environ.get("DEMO_TOKEN_OUT", "0x4200000000000000000000000000000000000006")
 DEMO_AMOUNT_IN = os.environ.get("DEMO_AMOUNT_IN", "5000000")
 POSTER_ADDR = os.environ.get("POSTER_ADDRESS", "0x46b26446ad47eF5230357A19E125323bb7FeC2A6")

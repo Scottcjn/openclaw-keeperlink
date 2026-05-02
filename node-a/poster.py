@@ -34,11 +34,18 @@ from shared.schemas import JobRequest, Receipt
 from shared.zerog import ZeroGError, download as zerog_download, merkle_root as zerog_merkle_root
 
 
-BASE_CHAIN_ID = 8453
-BASE_NETWORK = "eip155:8453"
-BASE_RPC_URL = "https://mainnet.base.org"
-BASESCAN_TX_URL = "https://basescan.org/tx"
-BASE_USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+BASE_CHAIN_ID = int(os.getenv("BASE_CHAIN_ID", "8453"))
+_IS_SEPOLIA = BASE_CHAIN_ID == 84532
+BASE_NETWORK = f"eip155:{BASE_CHAIN_ID}"
+BASE_RPC_URL = os.getenv(
+    "BASE_RPC_URL",
+    "https://sepolia.base.org" if _IS_SEPOLIA else "https://mainnet.base.org",
+)
+BASESCAN_TX_URL = "https://sepolia.basescan.org/tx" if _IS_SEPOLIA else "https://basescan.org/tx"
+BASE_USDC_ADDRESS = (
+    "0x036CbD53842c5426634e7929541eC2318f3dCF7e" if _IS_SEPOLIA
+    else "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+)
 BASE_WETH_ADDRESS = "0x4200000000000000000000000000000000000006"
 DEFAULT_RECEIPT_LOG = Path.home() / ".openclaw-keeperlink" / "receipts.jsonl"
 DEFAULT_TIMEOUT_S = 15.0
