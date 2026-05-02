@@ -54,6 +54,16 @@ BASE_USDC_ADDRESS = (
     else "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
 )
 BASE_WETH_ADDRESS = "0x4200000000000000000000000000000000000006"
+# Uniswap V3 SwapRouter02 — recipient of token approvals before swap_exact_input.
+# Sepolia uses a different deployment; override via env when targeting Sepolia.
+UNISWAP_V3_ROUTER02 = os.getenv(
+    "UNISWAP_V3_ROUTER02",
+    "0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4" if _IS_SEPOLIA
+    else "0x2626664c2603336E57B271c5C0b26F421741e481"
+)
+# Conventional "infinite" approval value — many tokens treat MAX_UINT256 as
+# unlimited and skip the per-transfer allowance decrement.
+MAX_UINT256 = "115792089237316195423570985008687907853269984665640564039457584007913129639935"
 WORKFLOW_SLUG = "keeperlink-swap"
 WORKFLOW_ID = "1ao3zjcjngophp36baqht"
 
@@ -313,6 +323,61 @@ def _find_tx_hash(obj: Any) -> str | None:
     return None
 
 
+def _ensure_token_allowance(
+    keeperhub: KeeperHubClient,
+    token_address: str,
+    spender_address: str,
+    owner_address: str,
+    needed_atomic: str,
+    chain_id: int,
+) -> dict:
+    # Idempotent guard so a freshly-funded KeeperHub-managed wallet survives
+    # its first swap without manual setup. Pattern: cheap view-call to read
+    # the current allowance; if short, fire one approve(MAX_UINT256). KH's
+    # generic execute_contract_call wraps the read result as
+    # {"result": "<atomic-string>"} per probe on 2026-05-02.
+    needed_int = int(needed_atomic)
+    current_int = 0
+    current_str = "unread"
+    try:
+        view_result = keeperhub.execute_contract_call(
+            contract_address=token_address,
+            function_name="allowance",
+            network=str(chain_id),
+            function_args=json.dumps([owner_address, spender_address]),
+        )
+        if isinstance(view_result, dict):
+            current_str = str(view_result.get("result", "0"))
+            if current_str.isdigit():
+                current_int = int(current_str)
+    except Exception as exc:  # noqa: BLE001
+        # Allowance read fails -> fall through and approve to be safe;
+        # worst case we burn an extra approval, never block the swap.
+        emit("token_allowance_read_failed", error=str(exc)[:200])
+
+    if current_int >= needed_int:
+        emit("token_allowance_ok",
+             token=token_address, spender=spender_address,
+             current_atomic=current_str, needed_atomic=needed_atomic)
+        return {"approved": False, "previous_allowance": current_str,
+                "tx_hash": None, "reason": "sufficient"}
+
+    emit("token_allowance_short_approving",
+         token=token_address, spender=spender_address,
+         current_atomic=current_str, needed_atomic=needed_atomic)
+    approve_result = keeperhub.execute_contract_call(
+        contract_address=token_address,
+        function_name="approve",
+        network=str(chain_id),
+        function_args=json.dumps([spender_address, MAX_UINT256]),
+    )
+    tx = _find_tx_hash(approve_result)
+    emit("token_allowance_approved",
+         token=token_address, spender=spender_address, tx_hash=tx)
+    return {"approved": True, "previous_allowance": current_str,
+            "tx_hash": tx, "reason": "approved_max_uint256"}
+
+
 def _fetch_workflow_version_hash(client: KeeperHubClient, config: ServiceConfig) -> str | None:
     try:
         response = client._client.get("/workflows")
@@ -386,6 +451,27 @@ def call_keeperhub_workflow(job: JobRequest, config: ServiceConfig) -> WorkflowD
                 emit("workflow_not_found_falling_back",
                      slug=config.workflow_slug,
                      fallback="execute_protocol_action:uniswap/swap-exact-input")
+                # On-demand allowance: a freshly-funded KeeperHub-managed wallet
+                # has zero ERC-20 approvals, so the very first swap reverts with
+                # Uniswap's STF (Safe Transfer Failed). One cheap allowance
+                # check + at most one approve(MAX_UINT256) per wallet-lifetime
+                # makes the demo work the first time it runs against a clean
+                # wallet (judges, contributors).
+                if config.keeperhub_wallet_address:
+                    try:
+                        _ensure_token_allowance(
+                            keeperhub=keeperhub,
+                            token_address=normalize_token(job.token_in),
+                            spender_address=UNISWAP_V3_ROUTER02,
+                            owner_address=config.keeperhub_wallet_address,
+                            needed_atomic=amount_in_atomic,
+                            chain_id=BASE_CHAIN_ID,
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        # Don't bail — the swap may still succeed if a prior
+                        # approval is in place. We log and continue.
+                        emit("token_allowance_helper_error",
+                             error=str(exc)[:200], job_id=job.job_id)
                 # KH's uniswap/swap-exact-input mirrors Uniswap V3 exactInputSingle
                 # and requires fee, recipient, amountOutMinimum, sqrtPriceLimitX96.
                 # The 0.05% (500) tier is the most liquid for USDC/WETH on Base.

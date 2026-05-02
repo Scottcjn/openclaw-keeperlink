@@ -317,6 +317,38 @@ class KeeperHubClient:
         )
         return _require_dict(payload, path="mcp:tools/call:execute_protocol_action")
 
+    def execute_contract_call(
+        self,
+        contract_address: str,
+        function_name: str,
+        network: str,
+        function_args: str | None = None,
+        abi: str | None = None,
+        value: str | None = None,
+    ) -> JsonDict:
+        # KeeperHub's generic contract-call tool: view functions return the
+        # result inline (e.g. {"result": "<atomic>"}), state-changing calls
+        # return {"executionId": "...", "status": "completed"} after settlement.
+        if not contract_address.strip():
+            raise ValueError("contract_address must not be empty")
+        if not function_name.strip():
+            raise ValueError("function_name must not be empty")
+        if not network.strip():
+            raise ValueError("network must not be empty")
+        args: JsonDict = {
+            "contract_address": contract_address,
+            "function_name": function_name,
+            "network": network,
+        }
+        if function_args is not None:
+            args["function_args"] = function_args
+        if abi is not None:
+            args["abi"] = abi
+        if value is not None:
+            args["value"] = value
+        payload = self._mcp_tool_call("execute_contract_call", args)
+        return _require_dict(payload, path="mcp:tools/call:execute_contract_call")
+
     def create_workflow(self, spec: JsonDict) -> JsonDict:
         payload = self._mcp_tool_call("create_workflow", spec)
         return _require_dict(payload, path="mcp:tools/call:create_workflow")
