@@ -291,3 +291,40 @@ Split-screen terminal:
 - Prior art: Hubble Trading Arena (ETHGlobal Buenos Aires winner)
 - Codex adversarial review: invoked Apr 25; surfaced Path B as submission core, AXL as labor market, audit envelope as 0G framework angle.
 - Day-1/Day-2 kill-test transcripts: `docs/kill-tests/`
+
+---
+
+## v5 addendum (May 1, 2026) — deadline pivots that landed in the demo
+
+Between v4 (Apr 25) and submission (May 3), three pivots shipped to keep the demo recordable inside the time budget:
+
+### Pivot A — Direct HTTP between nodes for the live demo (AXL kill-tested but not daemon-launched)
+
+The full AXL setup requires building the `axl-node:dev` Docker image from the Gensyn AXL source tree (`/home/scott/hackathon-refs/axl/`), generating peer keys, configuring Yggdrasil mesh peering, and launching a 3-container stack (Node A + Node B + MCP router). The kill-test (`docs/kill-tests/axl-day2.md`) confirmed that path works end-to-end on Apr 25 — but standing the daemon stack up cleanly for the recording session was an estimated 3–6 hours of Docker plumbing without buying additional architectural fidelity.
+
+Decision (May 1): **the production code path keeps AXL** (`node-a/poster.py` uses `shared/axl_client.py`, `node-b/keeperlink_service.py` registers with the AXL MCP router on startup), but the **live demo uses direct HTTP between nodes** via `KEEPERLINK_DIRECT_HTTP_URL` env var. Codex generated the direct-HTTP shim as a parallel code path; both modes coexist in the codebase. The demo recording uses `scripts/run_demo.py` which posts to `http://127.0.0.1:9004/keeperlink` directly.
+
+### Pivot B — `execute_protocol_action` fallback when the published workflow isn't there
+
+The v4 architecture assumed Node B owned a published `keeperlink-swap` workflow on KeeperHub (id `1ao3zjcjngophp36baqht`). The Day-2 kill-test (`docs/kill-tests/workflow-publishing-day2.md`) confirmed `ai_generate_workflow` produced a usable workflow definition and `create_workflow` would persist it — but the bazaar listing UX path requires web-UI confirmation steps that I did not get through before the deadline.
+
+Decision (May 1): `node-b/keeperlink_service.py:call_keeperhub_workflow()` first tries the published-workflow path (`POST /api/mcp/workflows/{slug}/call`); on 404, it falls back to **MCP `execute_protocol_action(uniswap/swap-exact-input)` via `POST /api/mcp`**. Same KeeperHub execution surface, same Uniswap V3 plugin, no workflow object required. Architectural story preserved: KeeperHub is the execution platform, Uniswap V3 is the protocol, only the wrapping object differs.
+
+This pivot is documented in `FEEDBACK.md §2.7` as a builder-feedback note; KeeperHub team gets actionable input on the publish-flow gap.
+
+### Pivot C — Demo orchestrator with hybrid pixel/ASCII animation (`scripts/run_demo.py`)
+
+The original demo script outline (per `DEMO_VIDEO_SCRIPT.md`) was raw log-scroll. The 3-min video script wins or loses on judge-skim engagement, so a small visual flourish was added:
+
+- **5-layer cascade animation** lights up `AXL → x402 → KeeperHub → Uniswap → 0G` left-to-right as the loop initiates
+- **Crawfish Hopper** — original-IP character (Louisiana mascot, fits Sophia Elya's swamp-girl identity from the Elyan Labs world; explicitly NOT a copyrighted gaming character) — chomps along a Unicode-block-rendered path during the on-chain confirm wait, then strikes a "★ COIN!" pose when block confirms. Uses Unicode block characters (`█▀▄▌▐`) so it reads as 8-bit pixel art while still being terminal-printable.
+- **Step labels + structured JSON** keep the technical narrative tight under the visuals.
+
+This is in `scripts/run_demo.py` — not part of the production agent code path, but the canonical demo entrypoint judges run.
+
+### What remains the same as v4
+
+- Five-layer stack, sponsor coverage, and OpenClaw Audit Envelope (the 0G framework primitive) are unchanged from v4.
+- AXL kill-test record stays; the AXL code path stays in production-mode files.
+- All shared/* modules are real (`shared/audit_envelope.py` 248 lines, `shared/keeperhub.py` 803 lines, `shared/x402.py` 200 lines, `shared/zerog.py` 143 lines).
+- 0G testnet upload verified end-to-end May 1 — real Merkle rootHashes returned from the TS-SDK helper.
