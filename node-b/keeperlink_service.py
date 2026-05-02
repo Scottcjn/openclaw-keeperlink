@@ -79,6 +79,7 @@ class ServiceConfig(BaseModel):
     node_b_private_key: str | None = None
     keeperhub_api_key: str | None = None
     keeperhub_api_url: str = DEFAULT_BASE_URL
+    keeperhub_wallet_address: str = ""
     workflow_slug: str = WORKFLOW_SLUG
     workflow_id: str = WORKFLOW_ID
     price_atomic: str = "10000"
@@ -101,6 +102,7 @@ class ServiceConfig(BaseModel):
             node_b_private_key=os.environ.get("NODE_B_PRIVATE_KEY") or None,
             keeperhub_api_key=os.environ.get("KEEPERHUB_API_KEY") or None,
             keeperhub_api_url=os.environ.get("KEEPERHUB_API_URL", DEFAULT_BASE_URL),
+            keeperhub_wallet_address=os.environ.get("KEEPERHUB_WALLET_ADDRESS", ""),
             workflow_slug=os.environ.get("KEEPERLINK_WORKFLOW_SLUG", WORKFLOW_SLUG),
             workflow_id=os.environ.get("KEEPERLINK_WORKFLOW_ID", WORKFLOW_ID),
             price_atomic=os.environ.get("KEEPERLINK_PRICE_ATOMIC", "10000"),
@@ -289,9 +291,15 @@ def _find_in_structure(obj: Any, keys: set[str]) -> Any | None:
 
 
 def _find_tx_hash(obj: Any) -> str | None:
+    # Match keys containing "tx" OR "transaction" OR "hash" — covers tx_hash,
+    # txHash, transactionHash (KeeperHub), and 0x-prefixed bare "hash" fields.
+    def _matches(key: str) -> bool:
+        k = key.lower()
+        return "tx" in k or "transaction" in k or k.endswith("hash")
+
     if isinstance(obj, dict):
         for key, value in obj.items():
-            if "tx" in key.lower() and isinstance(value, str) and value.startswith("0x") and len(value) == 66:
+            if _matches(key) and isinstance(value, str) and value.startswith("0x") and len(value) == 66:
                 return value
         for value in obj.values():
             found = _find_tx_hash(value)
@@ -371,44 +379,38 @@ def call_keeperhub_workflow(job: JobRequest, config: ServiceConfig) -> WorkflowD
             )
             data = response.json()
             if response.status_code == 404:
-                # Path B: fall back to direct execute_protocol_action via MCP
+                # Path B: fall back to execute_protocol_action via the MCP client.
+                # The earlier raw POST to /mcp on the REST client hit /api/mcp
+                # (the REST base_url) which 404s; the MCP client uses the proper
+                # /mcp endpoint with auth, Accept, and redirect handling.
                 emit("workflow_not_found_falling_back",
                      slug=config.workflow_slug,
                      fallback="execute_protocol_action:uniswap/swap-exact-input")
-                action_payload = {
-                    "jsonrpc": "2.0",
-                    "id": job.job_id,
-                    "method": "tools/call",
-                    "params": {
-                        "name": "execute_protocol_action",
-                        "arguments": {
-                            "actionType": "uniswap/swap-exact-input",
-                            "params": {
-                                "network": str(BASE_CHAIN_ID),
-                                "tokenIn": normalize_token(job.token_in),
-                                "tokenOut": normalize_token(job.token_out),
-                                "amountIn": amount_in_atomic,
-                            },
+                # KH's uniswap/swap-exact-input mirrors Uniswap V3 exactInputSingle
+                # and requires fee, recipient, amountOutMinimum, sqrtPriceLimitX96.
+                # The 0.05% (500) tier is the most liquid for USDC/WETH on Base.
+                # amountOutMinimum=1 is acceptable on a $1 demo trade — production
+                # callers should compute slippage from a `uniswap/quote-exact-input`.
+                try:
+                    data = keeperhub.execute_protocol_action(
+                        "uniswap/swap-exact-input",
+                        {
+                            "network": str(BASE_CHAIN_ID),
+                            "tokenIn": normalize_token(job.token_in),
+                            "tokenOut": normalize_token(job.token_out),
+                            "amountIn": amount_in_atomic,
+                            "fee": 500,
+                            "recipient": config.keeperhub_wallet_address,
+                            "amountOutMinimum": "1",
+                            "sqrtPriceLimitX96": "0",
                         },
-                    },
-                }
-                response = keeperhub._client.post("/mcp", json=action_payload)
-                data = response.json()
-                if response.status_code >= 400:
+                    )
+                except Exception as exc:  # noqa: BLE001
                     return WorkflowDispatchResult(
                         ok=False,
-                        response=data if isinstance(data, dict) else {"raw": data},
                         workflow_version_hash=version_hash,
-                        error=f"execute_protocol_action returned {response.status_code}",
+                        error=f"execute_protocol_action failed: {exc}",
                     )
-                # MCP wraps result in result.content[0].text (text JSON)
-                if isinstance(data, dict) and "result" in data:
-                    content = data["result"].get("content", [])
-                    if content and isinstance(content[0], dict) and content[0].get("type") == "text":
-                        try:
-                            data = json.loads(content[0]["text"])
-                        except (json.JSONDecodeError, KeyError):
-                            pass
             elif response.status_code >= 400:
                 execution_id = str(data.get("executionId") or data.get("execution_id") or "")
                 return WorkflowDispatchResult(

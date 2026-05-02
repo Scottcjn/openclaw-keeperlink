@@ -227,8 +227,18 @@ class KeeperHubClient:
         )
         self._mcp_client = httpx.Client(
             base_url=self.config.mcp_url,
-            headers={"Authorization": f"Bearer {self.config.api_key}"},
+            headers={
+                "Authorization": f"Bearer {self.config.api_key}",
+                # MCP-spec Accept: server may reply JSON or text/event-stream;
+                # without this header KeeperHub's edge returns the SPA HTML page
+                # instead of a JSON-RPC response (verified 2026-05-02).
+                "Accept": "application/json, text/event-stream",
+            },
             timeout=DEFAULT_TIMEOUT_S,
+            # KeeperHub redirects /mcp → /mcp/ with HTTP 308; httpx defaults to
+            # follow_redirects=False so the client otherwise reads the redirect
+            # body as the JSON-RPC response and dies decoding it.
+            follow_redirects=True,
         )
         self._mcp_request_id = 0
         self._mcp_session_id: str | None = None
@@ -571,19 +581,21 @@ def _normalize_api_base_url(base_url: str) -> str:
 
 
 def _normalize_mcp_url(mcp_url: str | None, base_url: str) -> str:
+    # KeeperHub's MCP endpoint lives at /mcp on the host root (verified 2026-05-02
+    # via direct probe — /api/mcp returns 404 HTML). Earlier code rewrote /mcp →
+    # /api/mcp which always failed; defaults derived from base_url=".../api" likewise
+    # produced a broken path. Build from the host with no /api segment.
     if not mcp_url:
-        return f"{base_url}/mcp"
+        host = base_url.rstrip("/")
+        if host.endswith("/api"):
+            host = host[:-4]
+        return f"{host}/mcp"
 
     parsed = urlsplit(mcp_url.strip())
     if not parsed.scheme or not parsed.netloc:
         raise KeeperHubConfigError(f"Invalid KeeperHub MCP URL: {mcp_url!r}")
 
     path = parsed.path.rstrip("/")
-    if path == "/mcp":
-        path = "/api/mcp"
-    elif not path.endswith("/api/mcp"):
-        if path.endswith("/mcp"):
-            path = f"{path[:-4]}/api/mcp"
     return urlunsplit((parsed.scheme, parsed.netloc, path, parsed.query, parsed.fragment))
 
 
