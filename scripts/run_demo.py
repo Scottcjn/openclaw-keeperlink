@@ -247,7 +247,18 @@ def cascade_layers(layers: list[tuple[str, str]]) -> None:
 
 # ─── Demo state ────────────────────────────────────────────────────────────
 
-NODE_B_URL = os.environ.get("KEEPERLINK_DIRECT_HTTP_URL", "http://127.0.0.1:9004/keeperlink")
+# Transport mode:
+#   - If AXL_NODE_B_PEER is set, route through Node A's AXL daemon (Path A — full
+#     architectural story; uses Yggdrasil P2P mesh between containers).
+#   - Else fall back to direct HTTP to Node B (Path B — recording-focused mode).
+AXL_NODE_A_URL = os.environ.get("AXL_NODE_A_URL", "http://127.0.0.1:9111")
+AXL_NODE_B_PEER = os.environ.get("AXL_NODE_B_PEER", "")
+if AXL_NODE_B_PEER:
+    NODE_B_URL = f"{AXL_NODE_A_URL}/mcp/{AXL_NODE_B_PEER}/keeperlink"
+    TRANSPORT = "AXL (Yggdrasil mesh, Path A)"
+else:
+    NODE_B_URL = os.environ.get("KEEPERLINK_DIRECT_HTTP_URL", "http://127.0.0.1:9004/keeperlink")
+    TRANSPORT = "Direct HTTP (Path B)"
 DEMO_INTENT = os.environ.get("DEMO_INTENT", "swap 5 USDC for WETH on Base")
 DEMO_TOKEN_IN = os.environ.get("DEMO_TOKEN_IN", "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913")
 DEMO_TOKEN_OUT = os.environ.get("DEMO_TOKEN_OUT", "0x4200000000000000000000000000000000000006")
