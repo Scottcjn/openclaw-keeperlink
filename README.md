@@ -1,5 +1,7 @@
 # OpenClaw KeeperLink
 
+> **👨‍⚖️ Judges:** start with [JUDGE_GUIDE.md](JUDGE_GUIDE.md) — 2-minute evaluation path with the strongest 3 clicks first.
+>
 > **P2P agent jobs that actually settle onchain.** Post over Gensyn AXL, pay via x402, execute via KeeperHub, swap on Uniswap V3, persist receipt on 0G Storage. No middlemen. No failed txs.
 
 **Built for:** [ETHGlobal Open Agents](https://ethglobal.com/events/openagents) — Apr 24 → May 3, 2026
