@@ -42,3 +42,4 @@ node-b/data/
 *.sock
 node-a/private.pem
 node-b/private.pem
+.codex
