@@ -178,6 +178,18 @@ Uniswap's piece in our build was via KeeperHub's wrapper rather than the standal
 
 ---
 
+## Future extensions (out of scope for this submission)
+
+The OpenClaw Audit Envelope primitive (`shared/audit_envelope.py`) is reusable beyond swaps — any OpenClaw agent that completes a hired job can produce one. Two extensions we sketched but deliberately scope-cut:
+
+1. **BoTTube anchor**: publish a short receipt-summary video to BoTTube (the AI-native video platform in our broader Elyan Labs ecosystem) with the basescan link + 0G rootHash in the description. This would give human-readable "video evidence" backing each on-chain action — useful for marketplaces where humans audit agent behavior. Cost: ~50 lines for the upload skill, but adds a non-sponsor surface so it's deferred.
+
+2. **RustChain anchor**: anchor batches of audit envelope rootHashes to RustChain (our hardware-attested L1) every N envelopes. This gives a second independent persistence layer with hardware-fingerprinted node attestation — useful when the bonded layer of trust matters more than just signature + content-address. Same scope-cut reasoning.
+
+Neither was built for this submission per the anti-scope discipline — but the audit envelope schema is forward-compatible with both extensions (additional `anchors` field, additive). Mentioning here so the framework-track judges see the full reuse surface.
+
+---
+
 **Author:** Scott Boudreaux / Elyan Labs (solo build)
 **Built during:** Apr 24 – May 3, 2026
 **Repo:** https://github.com/Scottcjn/openclaw-keeperlink

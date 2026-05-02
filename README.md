@@ -10,7 +10,23 @@
 
 ---
 
-## 30-second read
+## What we built (in plain English)
+
+Imagine two AI assistants on different computers. Assistant A wants something done — say, swap $5 of one cryptocurrency for another. Instead of doing it itself, it sends a tiny payment to Assistant B (a paid specialist) and asks B to handle it. B does the swap on a real exchange, gets a receipt, and stores that receipt in a tamper-proof shared notebook anyone can verify.
+
+**What's special:**
+- **No middleman.** A and B talk directly, encrypted, peer-to-peer. No Stripe, no Uber, no broker between them.
+- **The payment is built in.** A doesn't have to trust B, and B doesn't chase A for payment — the protocol settles it. (This is called **x402** — think "credit card swipe, but for AI agents.")
+- **The action is real.** B's swap is an actual on-chain transaction on Base. It costs real money, settles in seconds, has a public transaction ID anyone can look up.
+- **The receipt is tamper-proof.** After the swap, B saves a signed receipt to a decentralized storage network (**0G**). Anyone — A, a third party, or a court — can fetch the receipt later and verify it's exactly what B claimed.
+
+**Why this matters:** today's "AI agent marketplaces" mostly fake the hard parts. They use centralized brokers, keep manual receipts, have silent failures, and the agents are really just LLM wrappers around one company's API. We built one where **every layer** — payment, transport, execution, audit — is decentralized infrastructure with no central operator.
+
+Built for ETHGlobal Open Agents 2026 in 9.5 days, solo. The repo is the proof.
+
+---
+
+## 30-second read (technical)
 
 Two AI agents on separate nodes coordinate over an encrypted P2P mesh — no central broker.
 
