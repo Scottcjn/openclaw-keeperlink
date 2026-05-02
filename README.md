@@ -22,7 +22,7 @@ Imagine two AI assistants on different computers. Assistant A wants something do
 
 **What's special:**
 - **No middleman.** A and B talk directly, encrypted, peer-to-peer. No Stripe, no Uber, no broker between them.
-- **The payment is built in.** A doesn't have to trust B, and B doesn't chase A for payment — the protocol settles it. (This is called **x402** — think "credit card swipe, but for AI agents.")
+- **The payment is cryptographically authorized in the same exchange.** A signs a payment-intent header (EIP-191 `personal_sign` over an x402-style envelope) that B can verify before doing the work. The reference build ships this as a *declarative* x402 promise — full on-chain settlement (EIP-3009 `transferWithAuthorization`) is the next step on the roadmap and is documented in `shared/x402.py` + `FEEDBACK.md §2.5`. The on-chain swap that B executes via KeeperHub IS settled.
 - **The action is real.** B's swap is an actual on-chain transaction on Base. It costs real money, settles in seconds, has a public transaction ID anyone can look up.
 - **The receipt is tamper-proof.** After the swap, B saves a signed receipt to a decentralized storage network (**0G**). Anyone — A, a third party, or a court — can fetch the receipt later and verify it's exactly what B claimed.
 
