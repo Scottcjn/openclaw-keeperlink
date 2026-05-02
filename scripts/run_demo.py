@@ -1,21 +1,8 @@
 #!/usr/bin/env python3
-"""OpenClaw KeeperLink — live demo orchestrator (Path B: direct HTTP).
+"""OpenClaw KeeperLink live demo orchestrator (direct HTTP path).
 
-Runs the full 5-layer loop end-to-end:
-    1. Discover Node B's KeeperLink capability + pricing (USDC on Base)
-    2. Build a swap intent JobRequest
-    3. Sign x402 fallback payment header
-    4. Hire Node B via direct HTTP (production also supports AXL transport;
-       AXL was kill-tested Apr 25, see docs/kill-tests/axl-day2.md, but the
-       demo uses direct HTTP to keep the recording focused).
-    5. Node B verifies x402 + invokes its KeeperHub workflow (Uniswap V3
-       swap on Base) + signs an OpenClaw Audit Envelope + uploads to 0G
-    6. Demo verifies the Receipt: basescan tx hash exists + 0G rootHash
-       resolves and matches.
-
-Visual flair: a small ASCII crawfish character (Louisiana, original IP)
-hops between blocks during the on-chain confirm wait. Hybrid pixel-style
-using Unicode block characters.
+Runs discovery → job build → x402 signing → hire → receipt verify, with
+ANSI-only hackathon visuals for the Base swap, 0G receipt, and proof checks.
 """
 from __future__ import annotations
 
@@ -25,6 +12,7 @@ import random
 import sys
 import time
 import uuid
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
@@ -62,15 +50,38 @@ def color(s: str, c: str) -> str:
 # ─── Crawfish Hopper (original Louisiana mascot — no IP) ───────────────────
 
 CRAWFISH_FRAMES = [
-    # Resting
-    r"  __,__   ",
-    # Mid-hop
-    r"  /(\\/) ",
-    # Crouched
-    r"  __/-\__",
+    (0, [
+        "╭╮   ╭╮",
+        "╰██▄██╯",
+        "‹██▆██›",
+        " ╱╰┻╯╲ ",
+    ]),
+    (1, [
+        " ╭╮ ╭╮ ",
+        "‹██╳██›",
+        "╰██▆██╯",
+        " _╱ ╲_ ",
+    ]),
+    (1, [
+        " ╭╮ ╭╮ ",
+        "‹██▄▄██›",
+        " ╰████╯ ",
+        "  ▔╲╱▔  ",
+    ]),
+    (0, [
+        " ╭╮   ╭╮",
+        " ╲██▄██╱",
+        "‹╡███╞›",
+        "  ╲┳┳╱ ",
+    ]),
 ]
-
-CRAWFISH_CLAWS = ["<°)~~~", ">°)~~~", "<°)~~~"]
+TOKEN_META = {
+    "usdc": ("USDC", 6),
+    "weth": ("WETH", 18),
+    "eth": ("WETH", 18),
+    "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": ("USDC", 6),
+    "0x4200000000000000000000000000000000000006": ("WETH", 18),
+}
 
 
 def _clear_line() -> None:
@@ -78,55 +89,159 @@ def _clear_line() -> None:
     sys.stdout.flush()
 
 
+def _render_lines(lines: list[str], previous: int = 0) -> int:
+    if previous:
+        sys.stdout.write("\033[F" * previous)
+    total = max(previous, len(lines))
+    for i in range(total):
+        sys.stdout.write("\r\033[K")
+        if i < len(lines):
+            sys.stdout.write(lines[i])
+        if i < total - 1:
+            sys.stdout.write("\n")
+    sys.stdout.flush()
+    return len(lines)
+
+
+def _overlay(row: str, art: str, pos: int) -> str:
+    chars = list(row)
+    for i, ch in enumerate(art):
+        if ch != " " and 0 <= pos + i < len(chars):
+            chars[pos + i] = ch
+    return "".join(chars)
+
+
+def _token_meta(token: str | None, fallback: str) -> tuple[str, int]:
+    if token:
+        return TOKEN_META.get(token.lower(), (fallback, 18 if fallback in {"ETH", "WETH"} else 6))
+    return fallback, 18 if fallback in {"ETH", "WETH"} else 6
+
+
+def _format_amount(value: Any, token: str | None, fallback: str) -> str:
+    symbol, decimals = _token_meta(token, fallback)
+    if value in (None, ""):
+        return f"? {symbol}"
+    raw = str(value).strip()
+    try:
+        num = Decimal(raw)
+    except InvalidOperation:
+        return f"{raw} {symbol}"
+    if raw.lstrip("-").isdigit() and token and token.lower().startswith("0x") and len(raw) > 6:
+        num /= Decimal(10) ** decimals
+    places = 2 if symbol == "USDC" else 5
+    text = f"{num:.{places}f}"
+    if symbol != "USDC":
+        text = text.rstrip("0").rstrip(".")
+    return f"{text} {symbol}"
+
+
+def _ticket(title: str, rows: list[str]) -> None:
+    width = max(len(title), *(len(row) for row in rows)) + 2
+    print(color(f"  ╔{'═' * width}╗", BLUE))
+    print(color(f"  ║ {title.center(width - 2)} ║", BLUE))
+    print(color(f"  ╟{'┈' * width}╢", BLUE))
+    for row in rows:
+        print(color("  ║ ", BLUE) + row.ljust(width - 2) + color(" ║", BLUE))
+    print(color(f"  ╚{'═' * width}╝", BLUE))
+
+
+def _proof_badge(rows: list[tuple[str, bool]]) -> None:
+    text = [f"{'✓' if ok else '✗'} {label}" for label, ok in rows]
+    width = max(len("PROOF"), *(len(row) for row in text)) + 2
+    print(color(f"      ╔{'═' * width}╗", CYAN))
+    print(color(f"      ║ {'PROOF'.center(width - 2)} ║", CYAN))
+    for row, (_, ok) in zip(text, rows, strict=False):
+        tone = GREEN if ok else RED
+        print(color("      ║ ", CYAN) + color(row.ljust(width - 2), tone) + color(" ║", CYAN))
+    print(color(f"      ╚{'═' * width}╝", CYAN))
+
+
+def _rpc_call(method: str, params: list[Any]) -> Any:
+    resp = httpx.post(
+        os.environ.get("BASE_RPC_URL", "https://mainnet.base.org"),
+        json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params},
+        timeout=15.0,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if "error" in data:
+        raise RuntimeError(data["error"])
+    return data.get("result")
+
+
 def hop_animation(label: str, total_frames: int = 40, dot_count: int = 24) -> None:
     """Crawfish hops along a path of blocks. Returns when total_frames elapsed."""
-    track = "▁" * dot_count
+    previous = 0
+    spinners = ["⡆", "⠇", "⠧", "⠷", "⠯", "⠟", "⠻", "⠽"]
+    width = dot_count + 8
     for frame in range(total_frames):
-        pos = int((frame / max(total_frames - 1, 1)) * (dot_count - 3))
-        head = (
-            track[:pos] + color("◢█▆◣", ORANGE) + track[pos + 4 :]
-        )
-        spinner = ["⡆", "⠇", "⠧", "⠷", "⠯", "⠟", "⠻", "⠽"][frame % 8]
-        line = f"  {color(spinner, GREEN)} {label:<28} │{head}│"
-        _clear_line()
-        sys.stdout.write(line)
-        sys.stdout.flush()
-        time.sleep(0.08)
-    _clear_line()
-    print(f"  {color('✓', GREEN)} {label:<28} │{color('█' * dot_count, GREEN)}│ done")
+        hop, art = CRAWFISH_FRAMES[frame % len(CRAWFISH_FRAMES)]
+        pos = int((frame / max(total_frames - 1, 1)) * max(width - len(art[0]), 1))
+        canvas = [" " * width for _ in range(5)]
+        for row_i, row in enumerate(art):
+            target = min(row_i + hop, len(canvas) - 1)
+            canvas[target] = _overlay(canvas[target], row, pos)
+        progress = int((frame / max(total_frames - 1, 1)) * dot_count)
+        track = color("█" * progress, GREEN) + color("░" * (dot_count - progress), GREY + DIM)
+        lines = [
+            f"  {color(spinners[frame % len(spinners)], GREEN)} {label}",
+            *[f"    {color(row, ORANGE if frame % 2 == 0 else YELLOW)}" for row in canvas],
+            f"    │{track}│",
+        ]
+        previous = _render_lines(lines, previous)
+        time.sleep(random.uniform(0.08, 0.12))
+    print()
+    print(f"  {color('✓', GREEN)} {label:<28} {color('settled', GREEN + BOLD)}")
 
 
 def block_celebrate(block_label: str) -> None:
-    """Crawfish arrives at a confirmed block — hops up + claws raised."""
-    frames = [
-        f"     {color('◢█▆◣', ORANGE)}",
-        f"   {color('◢█▆◣', YELLOW)}    ←  {color(block_label, BOLD)}",
-        f"   {color('◢█▆◣', GREEN)}    ✦",
-        f"     {color('◢█▆◣', GREEN)}    {color('★ COIN!', YELLOW + BOLD)}",
+    """Crawfish arrives at a confirmed block — claws up, coins out."""
+    hero = CRAWFISH_FRAMES[-1][1]
+    effects = [
+        ("      ✧", ORANGE, ""),
+        ("   ✦     ✧", YELLOW, f"  {block_label}"),
+        (" ✦   ⋆   ✦", YELLOW + BOLD, ""),
+        ("★  sparkle burst  ☆", GREEN, ""),
+        (" ✦  coin pop!   ✦", YELLOW + BOLD, color("◉ ◉", YELLOW)),
+        ("⋆  proof minted  ⋆", CYAN, ""),
+        ("★ settled on Base ★", GREEN + BOLD, color("✓", GREEN)),
     ]
-    for f in frames:
-        _clear_line()
-        sys.stdout.write(f)
-        sys.stdout.flush()
-        time.sleep(0.15)
+    previous = 0
+    for top, sparkle_color, tail in effects:
+        lines = [
+            color(f"    {top}", sparkle_color),
+            f"      {color(hero[0], ORANGE)}",
+            f"      {color(hero[1], ORANGE)}{tail}",
+            f"      {color(hero[2], ORANGE)}",
+            f"      {color(hero[3], ORANGE)}",
+        ]
+        previous = _render_lines(lines, previous)
+        time.sleep(random.uniform(0.09, 0.14))
     print()
 
 
 def cascade_layers(layers: list[tuple[str, str]]) -> None:
-    """Light up each sponsor layer left-to-right with a build animation."""
+    """Light up each sponsor layer left-to-right with dim → pulse → solid."""
     print(color("\n  Layer cascade:", BOLD))
-    n = len(layers)
-    for done in range(n + 1):
-        bar = ""
-        for i, (name, color_code) in enumerate(layers):
-            if i < done:
-                bar += color(f" █ {name} ", color_code)
-            else:
-                bar += color(f" ░ {name} ", DIM)
+    pulses = [("░", "dim"), ("▒", "pulse"), ("▓", "pulse"), ("█", "solid")]
+    for active, _ in enumerate(layers):
+        for pulse_i, (glyph, state) in enumerate(pulses):
+            bar = ""
+            for i, (name, color_code) in enumerate(layers):
+                if i < active:
+                    bar += color(f" █ {name} ", color_code + BOLD)
+                elif i == active:
+                    tone = color_code + (DIM if state == "dim" else BOLD)
+                    bar += color(f" {glyph} {name} ", tone)
+                else:
+                    bar += color(f" ░ {name} ", GREY + DIM)
+            _clear_line()
+            sys.stdout.write(f"  {bar}")
+            sys.stdout.flush()
+            time.sleep(0.09 if pulse_i < len(pulses) - 1 else 0.12)
         _clear_line()
         sys.stdout.write(f"  {bar}")
         sys.stdout.flush()
-        time.sleep(0.25)
     print()
 
 
@@ -272,29 +387,81 @@ def hire_node_b(job: JobRequest, x402_header: str) -> dict[str, Any]:
 
 def show_receipt(receipt: dict[str, Any]) -> None:
     step(5, "Receipt received")
-    print(color("      Receipt body:", DIM))
     tx_hash = receipt.get("tx_hash") or "(none)"
     rh = receipt.get("zerog_root_hash") or receipt.get("0g_root_hash") or "(none)"
-    print(f"        tx_hash       : {color(tx_hash, GREEN)}")
-    print(f"        basescan_link : https://basescan.org/tx/{tx_hash}")
-    print(f"        0G rootHash   : {color(rh, GREEN)}")
+    tx_link = receipt.get("basescan_link") or receipt.get("tx_link") or f"https://basescan.org/tx/{tx_hash}"
+    amount_in = _format_amount(receipt.get("amount_in") or DEMO_AMOUNT_IN, DEMO_TOKEN_IN, "USDC")
+    amount_out = _format_amount(receipt.get("amount_out"), DEMO_TOKEN_OUT, "WETH")
+    print(color("      Swap settled:", DIM))
+    for pulse in range(1, 9):
+        dots = color(("•" * pulse).ljust(8, "·"), YELLOW)
+        _clear_line()
+        sys.stdout.write(f"        {color(amount_in, GREEN)} ─{dots}▶ {color(amount_out, CYAN)}")
+        sys.stdout.flush()
+        time.sleep(0.09)
+    _clear_line()
+    print(f"        {color(amount_in, GREEN)} ─────▶ {color(amount_out, CYAN)}")
+    _ticket(
+        "OpenClaw Settlement Receipt",
+        [
+            f"✓ tx_hash       {tx_hash}",
+            f"✓ amount_out    {amount_out}",
+            f"✓ basescan_link {tx_link}",
+            f"✓ 0G rootHash   {rh}",
+        ],
+    )
     print()
 
 
 def verify_round_trip(receipt: dict[str, Any]) -> None:
     step(6, "Round-trip verify (onchain + 0G)")
     rh = receipt.get("zerog_root_hash") or receipt.get("0g_root_hash")
+    tx_hash = receipt.get("tx_hash") or ""
+    signature_ok = False
+    content_ok = False
+    onchain_ok = False
     if rh and rh.startswith("0x"):
         try:
             blob = zerog.download(rh)
-            envelope = OpenClawAuditEnvelope.model_validate_json(blob)
-            ok = verify_envelope_integrity(envelope)
+            envelope = OpenClawAuditEnvelope.model_validate_json(blob.decode("utf-8"))
+            integrity_ok, reason = verify_envelope_integrity(envelope)
+            content_ok = integrity_ok and zerog.merkle_root(blob) == rh
+            from eth_account import Account
+            from eth_account.messages import encode_defunct
+
+            recovered = Account.recover_message(
+                encode_defunct(primitive=envelope.signing_bytes()),
+                signature=envelope.signature,
+            )
+            signature_ok = recovered.lower() == envelope.signer_address.lower()
             print(f"      0G download   : {color('✓', GREEN)} ({len(blob)} bytes)")
-            print(f"      sig integrity : {color('✓', GREEN) if ok else color('✗', RED)}")
+            print(f"      content match : {color('✓', GREEN) if content_ok else color('✗', RED)}")
+            print(f"      signature     : {color('✓', GREEN) if signature_ok else color('✗', RED)}")
+            if not content_ok and reason:
+                print(color(f"      note          : {reason}", YELLOW))
         except Exception as exc:  # noqa: BLE001
             print(f"      0G verify     : {color(f'✗ {exc}', RED)}")
     else:
         print(f"      0G verify     : {color('skipped (no rootHash)', YELLOW)}")
+    if tx_hash:
+        try:
+            tx_receipt = _rpc_call("eth_getTransactionReceipt", [tx_hash])
+            onchain_ok = bool(tx_receipt) and int(tx_receipt.get("status", "0x0"), 16) == 1
+            block_hex = tx_receipt.get("blockNumber") if tx_receipt else None
+            block_text = f" block {int(block_hex, 16)}" if block_hex else ""
+            print(f"      Base confirm  : {color('✓', GREEN) if onchain_ok else color('✗', RED)}{block_text}")
+        except Exception as exc:  # noqa: BLE001
+            print(f"      Base confirm  : {color(f'✗ {exc}', RED)}")
+    else:
+        print(f"      Base confirm  : {color('skipped (no tx_hash)', YELLOW)}")
+    if signature_ok and content_ok and onchain_ok:
+        _proof_badge(
+            [
+                ("signature valid", True),
+                ("0G content matches", True),
+                ("onchain tx confirmed", True),
+            ]
+        )
     print()
 
 
