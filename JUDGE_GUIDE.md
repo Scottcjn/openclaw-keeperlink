@@ -32,13 +32,21 @@ Two AI agents transact peer-to-peer on Base mainnet — discover via AXL, pay vi
 
 ## Sponsor track contributions
 
+> **Note on prize claims.** ETHGlobal caps each project at **3 partner-prize claims**. We claimed the three with the deepest integrations: **0G**, **KeeperHub**, **Uniswap Foundation**. Gensyn (AXL) is listed as "additional partner technology used" — it's load-bearing for the protocol but doesn't fit the Gensyn track's distributed-compute thesis as cleanly, so we left the slot for projects that do.
+
+### Claimed prizes (3)
+
 | Track | What we built | Where to look |
 |---|---|---|
-| **Gensyn AXL** | Two real AXL nodes in Docker containers routing MCP envelopes between Poster and Service over Yggdrasil mesh. Path A live. | `docker compose up` brings up `openclaw-node-a`, `openclaw-node-b`, `openclaw-node-b-mcp-router`. Discovery probe: `curl :9111/mcp/{peer}/keeperlink -d '{"kind":"discover"}'`. |
-| **KeeperHub Focus 2** | `execute_protocol_action(uniswap/swap-exact-input)` via the MCP server. Real settled tx on Base mainnet. | `node-b/keeperlink_service.py:dispatch_workflow()` (Path B branch). Live LLM agent (`scripts/run_demo_agent.py`) demonstrates the same path is drivable by Claude with no KH-specific knowledge. |
-| **KH Builder Feedback Bounty** | 240+ line FEEDBACK.md with §1 Uniswap, §2 KeeperHub, §2.10 mainnet-day bugs, §2.11 LLM-driveability. Each finding has reproducible repro + concrete suggestion + PR-ready fix. | `FEEDBACK.md`. The newest content (§2.10 + §2.11) was written today during the mainnet flip and the LLM agent demo build. |
-| **0G Framework** | `OpenClawAuditEnvelope` Pydantic schema — signed envelope wrapping x402 proof + KH execution + on-chain settlement, content-addressed via Merkle root, round-trip verified by demo orchestrator. Reusable beyond swaps. | `shared/audit_envelope.py` (schema, 248 lines). `scripts/zerog/zerog_helper.mjs` (TS-SDK helper). Demo orchestrator's "Round-trip verify" step downloads + content-matches + signature-verifies the envelope. |
+| **0G Framework** | `OpenClawAuditEnvelope` Pydantic schema — signed envelope wrapping x402 proof + KH execution + on-chain settlement, content-addressed via Merkle rootHash, round-trip verified by demo orchestrator. Reusable beyond swaps. | `shared/audit_envelope.py` (schema, 248 lines). `scripts/zerog/zerog_helper.mjs` (TS-SDK helper). Demo orchestrator's "Round-trip verify" step downloads + content-matches + signature-verifies the envelope. Live receipt rootHash: `0xa45c313d03fec00119069838e91f9e52f6f8f578174a7e72e779e7b1aaaba871`. |
+| **KeeperHub** (incl. Builder Feedback Bounty) | `execute_protocol_action(uniswap/swap-exact-input)` via the MCP server. Real settled tx on Base mainnet. **240+ line FEEDBACK.md** (§1 Uniswap, §2 KeeperHub, §2.10 mainnet-day bugs, §2.11 LLM-driveability) submitted as the Builder Feedback artifact alongside the integration. | `node-b/keeperlink_service.py:dispatch_workflow()` (Path B branch). Live LLM agent (`scripts/run_demo_agent.py`) demonstrates the same path is drivable by Claude with no KH-specific knowledge. `FEEDBACK.md` for the writeup. |
 | **Uniswap Foundation** | Real settled USDC→WETH swap on Base mainnet via SwapRouter02. Both KH-wrapped path AND direct Trading API consultation. | `node-b/keeperlink_service.py` (KH-wrapped swap with on-demand approve) + `scripts/run_demo_agent.py` `get_market_quote` tool (direct Trading API quote that the LLM consults before hiring). |
+
+### Used but not claimed
+
+| Track | What we built | Where to look |
+|---|---|---|
+| **Gensyn AXL** | Two real AXL nodes in Docker containers routing MCP envelopes between Poster and Service over Yggdrasil mesh. Path A live and load-bearing — without AXL the discovery handshake doesn't work. | `docker compose up` brings up `openclaw-node-a`, `openclaw-node-b`, `openclaw-node-b-mcp-router`. Discovery probe: `curl :9111/mcp/{peer}/keeperlink -d '{"kind":"discover"}'`. |
 
 ## Live artifacts
 
