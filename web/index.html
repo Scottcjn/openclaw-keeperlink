@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>OpenClaw KeeperLink — ETHGlobal Open Agents 2026</title>
+  <meta name="description" content="Two AI agents transact peer-to-peer on Base mainnet — discover via AXL, pay via x402, execute via KeeperHub, swap on Uniswap V3, persist receipt on 0G.">
+  <meta property="og:title" content="OpenClaw KeeperLink">
+  <meta property="og:description" content="Five-layer agent payment loop, real settled tx on Base mainnet, solo build for ETHGlobal Open Agents 2026.">
+  <meta property="og:type" content="website">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --amber: #FFB347;
+      --teal:  #5EEAD4;
+      --ink:   #0a0a0b;
+      --ink2:  #18181b;
+      --ink3:  #27272a;
+    }
+    body {
+      background: var(--ink);
+      color: #e4e4e7;
+      font-family: ui-serif, Georgia, "Times New Roman", serif;
+      font-feature-settings: "ss01", "liga";
+    }
+    .mono { font-family: ui-monospace, SFMono-Regular, "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace; }
+    .amber { color: var(--amber); }
+    .teal  { color: var(--teal); }
+    .grid-bg {
+      background-image:
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 32px 32px;
+      background-position: -1px -1px;
+    }
+    .glow-amber { box-shadow: 0 0 0 1px rgba(255,179,71,0.18), 0 8px 30px -8px rgba(255,179,71,0.12); }
+    .glow-teal  { box-shadow: 0 0 0 1px rgba(94,234,212,0.18), 0 8px 30px -8px rgba(94,234,212,0.12); }
+    .badge {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      padding: 0.3rem 0.7rem; border-radius: 999px;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      font-size: 0.78rem; letter-spacing: 0.02em;
+    }
+    .badge .dot { width: 0.5rem; height: 0.5rem; border-radius: 999px; }
+    .card {
+      background: linear-gradient(180deg, var(--ink2), var(--ink));
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+    }
+    .copyable {
+      cursor: pointer; transition: all 0.15s ease;
+    }
+    .copyable:hover { background: rgba(94,234,212,0.06); }
+    .copyable.copied { background: rgba(94,234,212,0.18); }
+    a.link { color: var(--teal); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(94,234,212,0.4); }
+    a.link:hover { text-decoration-color: var(--teal); }
+    h1, h2, h3 { color: var(--amber); }
+    h1 { font-weight: 600; letter-spacing: -0.01em; }
+    h2 { font-weight: 600; letter-spacing: -0.01em; }
+    .step-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 1.75rem; height: 1.75rem; border-radius: 999px;
+      background: rgba(255,179,71,0.12); color: var(--amber);
+      font-family: ui-monospace, monospace; font-size: 0.85rem; font-weight: 600;
+    }
+    .layer { transition: filter 0.15s ease; }
+    .layer:hover { filter: brightness(1.25); }
+    pre { background: var(--ink2); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 1rem; overflow-x: auto; font-size: 0.82rem; }
+    .marquee-line {
+      background: linear-gradient(90deg, transparent, var(--amber), transparent);
+      height: 1px; opacity: 0.45;
+    }
+  </style>
+</head>
+<body class="grid-bg">
+
+  <!-- ───── HERO ───── -->
+  <section class="max-w-5xl mx-auto px-6 pt-16 pb-10">
+    <div class="flex items-center gap-3 mb-6 mono text-xs text-zinc-500">
+      <span>ETHGLOBAL · OPEN AGENTS · APR 24 → MAY 6 2026</span>
+      <span class="opacity-30">·</span>
+      <span class="amber">SOLO BUILD · ELYAN LABS</span>
+    </div>
+
+    <h1 class="text-5xl md:text-6xl leading-[1.05] mb-6">
+      OpenClaw KeeperLink
+    </h1>
+    <p class="text-xl md:text-2xl text-zinc-300 leading-snug max-w-3xl mb-8">
+      Two AI agents transact peer-to-peer on Base mainnet — no broker,
+      no escrow, no platform between them. <span class="amber">Real settled USDC → WETH swap.</span>
+      Real Merkle-rooted audit envelope. <span class="teal">Independently verifiable end to end.</span>
+    </p>
+
+    <div class="flex flex-wrap gap-2 mb-10">
+      <span class="badge"><span class="dot" style="background:#5EEAD4"></span>AXL · Gensyn</span>
+      <span class="badge"><span class="dot" style="background:#FFB347"></span>x402 payments</span>
+      <span class="badge"><span class="dot" style="background:#a78bfa"></span>KeeperHub MCP</span>
+      <span class="badge"><span class="dot" style="background:#f472b6"></span>Uniswap V3</span>
+      <span class="badge"><span class="dot" style="background:#34d399"></span>0G Storage</span>
+    </div>
+
+    <div class="flex flex-wrap gap-3">
+      <a class="px-5 py-3 rounded-xl glow-amber bg-amber-400/10 amber font-medium hover:bg-amber-400/15 transition"
+         href="https://github.com/Scottcjn/openclaw-keeperlink">
+        GitHub →
+      </a>
+      <a class="px-5 py-3 rounded-xl glow-teal teal font-medium hover:bg-teal-400/15 transition"
+         href="https://youtu.be/brC9l2QefhU">
+        Watch 38s demo ▸
+      </a>
+      <a class="px-5 py-3 rounded-xl border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition"
+         href="https://basescan.org/tx/0xeb85abefaf5c7da435c9c32090469d388493a0894c2a41b51178e5ce41345f32">
+        Verify the tx on basescan
+      </a>
+    </div>
+  </section>
+
+  <div class="max-w-5xl mx-auto px-6"><div class="marquee-line"></div></div>
+
+  <!-- ───── DEMO VIDEO ───── -->
+  <section class="max-w-5xl mx-auto px-6 py-12">
+    <div class="flex items-baseline justify-between mb-5 flex-wrap gap-2">
+      <h2 class="text-2xl">Demo · canonical (38s)</h2>
+      <span class="mono text-xs text-zinc-500">narrated by Sophia Elya · Elyan Labs vintage voice</span>
+    </div>
+    <div class="card overflow-hidden glow-teal">
+      <div class="aspect-video bg-black">
+        <iframe
+          class="w-full h-full"
+          src="https://www.youtube.com/embed/brC9l2QefhU"
+          title="OpenClaw KeeperLink demo"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen></iframe>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───── ARCHITECTURE DIAGRAM ───── -->
+  <section class="max-w-5xl mx-auto px-6 py-12">
+    <h2 class="text-2xl mb-2">Five layers, one demo loop</h2>
+    <p class="text-zinc-400 mb-8 max-w-2xl">
+      Each sponsor surface is load-bearing — replace any one and the protocol breaks.
+      The boxes are real Docker containers + real RPCs + real signatures + real money.
+    </p>
+
+    <div class="card p-6 md:p-10">
+      <svg viewBox="0 0 800 460" class="w-full" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L0,6 L9,3 z" fill="#71717a"/>
+          </marker>
+          <linearGradient id="aglow" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#5EEAD4" stop-opacity="0"/>
+            <stop offset="50%" stop-color="#5EEAD4" stop-opacity="0.6"/>
+            <stop offset="100%" stop-color="#5EEAD4" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+
+        <!-- Node A (Poster) -->
+        <g class="layer">
+          <rect x="20" y="50" width="220" height="180" rx="14" fill="#18181b" stroke="#FFB347" stroke-opacity="0.4" stroke-width="1.5"/>
+          <text x="130" y="78" text-anchor="middle" fill="#FFB347" font-family="ui-monospace, monospace" font-size="11" letter-spacing="2">POSTER · NODE A</text>
+          <text x="130" y="110" text-anchor="middle" fill="#fafafa" font-family="ui-serif, Georgia" font-size="15" font-weight="600">Hiring agent</text>
+          <line x1="40" y1="130" x2="220" y2="130" stroke="#3f3f46" stroke-width="0.5"/>
+          <text x="40" y="152" fill="#a1a1aa" font-family="ui-monospace, monospace" font-size="10.5">› build JobRequest</text>
+          <text x="40" y="170" fill="#a1a1aa" font-family="ui-monospace, monospace" font-size="10.5">› sign x402 header</text>
+          <text x="40" y="188" fill="#a1a1aa" font-family="ui-monospace, monospace" font-size="10.5">› hire over AXL</text>
+          <text x="40" y="206" fill="#5EEAD4" font-family="ui-monospace, monospace" font-size="10.5">› verify receipt</text>
+        </g>
+
+        <!-- AXL mesh (pipe) -->
+        <g class="layer">
+          <rect x="260" y="125" width="280" height="30" rx="15" fill="#18181b" stroke="#5EEAD4" stroke-opacity="0.5" stroke-width="1.5"/>
+          <rect x="260" y="125" width="280" height="30" rx="15" fill="url(#aglow)"/>
+          <text x="400" y="145" text-anchor="middle" fill="#5EEAD4" font-family="ui-monospace, monospace" font-size="11" letter-spacing="1">AXL · Yggdrasil mesh · encrypted P2P</text>
+        </g>
+        <line x1="240" y1="140" x2="260" y2="140" stroke="#71717a" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <line x1="540" y1="140" x2="560" y2="140" stroke="#71717a" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <!-- Node B (Service) -->
+        <g class="layer">
+          <rect x="560" y="50" width="220" height="180" rx="14" fill="#18181b" stroke="#FFB347" stroke-opacity="0.4" stroke-width="1.5"/>
+          <text x="670" y="78" text-anchor="middle" fill="#FFB347" font-family="ui-monospace, monospace" font-size="11" letter-spacing="2">SERVICE · NODE B</text>
+          <text x="670" y="110" text-anchor="middle" fill="#fafafa" font-family="ui-serif, Georgia" font-size="15" font-weight="600">Executor agent</text>
+          <line x1="580" y1="130" x2="760" y2="130" stroke="#3f3f46" stroke-width="0.5"/>
+          <text x="580" y="152" fill="#a1a1aa" font-family="ui-monospace, monospace" font-size="10.5">› verify x402 sig</text>
+          <text x="580" y="170" fill="#a1a1aa" font-family="ui-monospace, monospace" font-size="10.5">› on-demand approve</text>
+          <text x="580" y="188" fill="#a1a1aa" font-family="ui-monospace, monospace" font-size="10.5">› fire swap via KH</text>
+          <text x="580" y="206" fill="#34d399" font-family="ui-monospace, monospace" font-size="10.5">› sign + pin envelope</text>
+        </g>
+
+        <!-- Downstream services -->
+        <line x1="620" y1="230" x2="380" y2="290" stroke="#71717a" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+        <line x1="700" y1="230" x2="640" y2="290" stroke="#71717a" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+
+        <!-- KeeperHub box -->
+        <g class="layer">
+          <rect x="200" y="290" width="200" height="80" rx="10" fill="#18181b" stroke="#a78bfa" stroke-opacity="0.45" stroke-width="1.3"/>
+          <text x="300" y="316" text-anchor="middle" fill="#a78bfa" font-family="ui-monospace, monospace" font-size="11" letter-spacing="1.5">KEEPERHUB · MCP</text>
+          <text x="300" y="338" text-anchor="middle" fill="#fafafa" font-family="ui-serif, Georgia" font-size="13">execute_protocol_action</text>
+          <text x="300" y="356" text-anchor="middle" fill="#71717a" font-family="ui-monospace, monospace" font-size="10">Turnkey-MPC wallet</text>
+        </g>
+
+        <!-- Uniswap box -->
+        <g class="layer">
+          <rect x="430" y="290" width="200" height="80" rx="10" fill="#18181b" stroke="#f472b6" stroke-opacity="0.45" stroke-width="1.3"/>
+          <text x="530" y="316" text-anchor="middle" fill="#f472b6" font-family="ui-monospace, monospace" font-size="11" letter-spacing="1.5">UNISWAP V3 · BASE</text>
+          <text x="530" y="338" text-anchor="middle" fill="#fafafa" font-family="ui-serif, Georgia" font-size="13">SwapRouter02</text>
+          <text x="530" y="356" text-anchor="middle" fill="#71717a" font-family="ui-monospace, monospace" font-size="10">USDC → WETH · 500 bps pool</text>
+        </g>
+
+        <!-- 0G box (alone, fed from Service) -->
+        <line x1="700" y1="230" x2="700" y2="280" stroke="#71717a" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+        <g class="layer">
+          <rect x="600" y="385" width="180" height="55" rx="10" fill="#18181b" stroke="#34d399" stroke-opacity="0.5" stroke-width="1.3"/>
+          <text x="690" y="409" text-anchor="middle" fill="#34d399" font-family="ui-monospace, monospace" font-size="11" letter-spacing="1.5">0G · GALILEO</text>
+          <text x="690" y="427" text-anchor="middle" fill="#fafafa" font-family="ui-serif, Georgia" font-size="12">audit envelope rootHash</text>
+        </g>
+        <line x1="700" y1="370" x2="700" y2="385" stroke="#71717a" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+
+        <!-- KH → Uniswap arrow -->
+        <line x1="400" y1="330" x2="430" y2="330" stroke="#71717a" stroke-width="1" marker-end="url(#arrow)"/>
+
+        <!-- Settlement marker -->
+        <text x="530" y="440" text-anchor="middle" fill="#a1a1aa" font-family="ui-monospace, monospace" font-size="10.5">↑ real on-chain settlement · basescan-verifiable</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ───── LIVE LLM AGENT ADDENDUM ───── -->
+  <section class="max-w-5xl mx-auto px-6 py-12">
+    <div class="flex items-baseline justify-between mb-5 flex-wrap gap-2">
+      <h2 class="text-2xl">Live LLM agent · 40s addendum</h2>
+      <span class="mono text-xs text-zinc-500">Claude Sonnet 4.6 in the driver's seat</span>
+    </div>
+    <p class="text-zinc-400 mb-6 max-w-3xl">
+      Same architecture, different driver. An actual LLM holds the orchestration role:
+      reasons about the swap, calls tools (<span class="mono teal">discover · quote · verify · hire · verify_settlement</span>),
+      and only then commits to spending real USDC. Distinguishes "agent" from "script" by
+      <em>showing</em> the tool-use loop live, not just claiming it.
+    </p>
+    <div class="card overflow-hidden glow-amber">
+      <div class="aspect-video bg-black">
+        <iframe
+          class="w-full h-full"
+          src="https://www.youtube.com/embed/QIU8s-jHG94"
+          title="OpenClaw KeeperLink — live LLM agent addendum"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen></iframe>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───── LIVE ARTIFACTS ───── -->
+  <section class="max-w-5xl mx-auto px-6 py-12">
+    <h2 class="text-2xl mb-2">Live artifacts</h2>
+    <p class="text-zinc-400 mb-6 max-w-2xl">
+      Every link below is real. No mocks, no testnet placeholders. Click any value to copy.
+    </p>
+
+    <div class="grid md:grid-cols-2 gap-4">
+
+      <div class="card p-5">
+        <div class="mono text-[10px] text-zinc-500 mb-2 tracking-widest">BASE MAINNET TX</div>
+        <a href="https://basescan.org/tx/0xeb85abefaf5c7da435c9c32090469d388493a0894c2a41b51178e5ce41345f32"
+           class="link mono text-xs break-all">0xeb85abefaf5c7da435c9c32090469d388493a0894c2a41b51178e5ce41345f32</a>
+        <div class="mono text-xs text-zinc-500 mt-2">block 45453249 · USDC → WETH · status 1 ✓</div>
+      </div>
+
+      <div class="card p-5">
+        <div class="mono text-[10px] text-zinc-500 mb-2 tracking-widest">0G ROOTHASH</div>
+        <div class="mono text-xs break-all teal copyable" data-copy="0xa45c313d03fec00119069838e91f9e52f6f8f578174a7e72e779e7b1aaaba871">0xa45c313d03fec00119069838e91f9e52f6f8f578174a7e72e779e7b1aaaba871</div>
+        <div class="mono text-xs text-zinc-500 mt-2">galileo testnet · downloaded · content-matched · sig-verified</div>
+      </div>
+
+      <div class="card p-5">
+        <div class="mono text-[10px] text-zinc-500 mb-2 tracking-widest">KH-MANAGED WALLET (TURNKEY MPC)</div>
+        <div class="mono text-xs break-all teal copyable" data-copy="0xe12230149b2d5ed561fa51261fb8e02dbd514724">0xe12230149b2d5ed561fa51261fb8e02dbd514724</div>
+        <div class="mono text-xs text-zinc-500 mt-2">scope: organization-shared · admin/owner manage only</div>
+      </div>
+
+      <div class="card p-5">
+        <div class="mono text-[10px] text-zinc-500 mb-2 tracking-widest">NODE B IDENTITY · X402 PAYEE</div>
+        <div class="mono text-xs break-all teal copyable" data-copy="0xa13944De329EaC2658FB7DC0b6BBC523A0a697C3">0xa13944De329EaC2658FB7DC0b6BBC523A0a697C3</div>
+        <div class="mono text-xs text-zinc-500 mt-2">generated 2026-05-01 · Ed25519 signs the audit envelope</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ───── RUN IT YOURSELF ───── -->
+  <section class="max-w-5xl mx-auto px-6 py-12">
+    <h2 class="text-2xl mb-6">Run it yourself</h2>
+    <div class="space-y-5">
+
+      <div class="flex gap-4">
+        <span class="step-num shrink-0">1</span>
+        <div class="flex-1">
+          <div class="text-zinc-200 font-medium mb-1">Clone the repo</div>
+          <pre class="mono">git clone https://github.com/Scottcjn/openclaw-keeperlink.git
+cd openclaw-keeperlink</pre>
+        </div>
+      </div>
+
+      <div class="flex gap-4">
+        <span class="step-num shrink-0">2</span>
+        <div class="flex-1">
+          <div class="text-zinc-200 font-medium mb-1">Bring up the AXL mesh + KeeperLink service</div>
+          <pre class="mono">docker compose up -d
+# verify all three containers are running:
+docker ps --filter "name=openclaw"</pre>
+        </div>
+      </div>
+
+      <div class="flex gap-4">
+        <span class="step-num shrink-0">3</span>
+        <div class="flex-1">
+          <div class="text-zinc-200 font-medium mb-1">Set <span class="mono text-sm">.env</span>, fund the KH wallet, run the demo</div>
+          <pre class="mono">cp .env.example .env   # fill in KEEPERHUB_API_KEY, NODE_B_PRIVATE_KEY, etc.
+# fund 0xe12230149b2d5ed561fa51261fb8e02dbd514724 with ~0.0015 ETH
+# + ~5 USDC on Base mainnet (Coinbase → withdraw, ~$10 total)
+
+python3 scripts/run_demo.py          # deterministic 5-layer cascade
+python3 scripts/run_demo_agent.py    # live LLM (Claude Sonnet 4.6) variant</pre>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ───── WHY IT MATTERS ───── -->
+  <section class="max-w-5xl mx-auto px-6 py-12">
+    <h2 class="text-2xl mb-4">Why this matters</h2>
+    <div class="card p-7 max-w-3xl">
+      <p class="text-zinc-200 leading-relaxed mb-4">
+        Most agentic-payment demos in 2025–2026 either (a) trust a central marketplace
+        to settle between agents, or (b) hand-wave the proof step ("the agent did
+        the thing, see this screenshot"). OpenClaw KeeperLink shows that with off-the-shelf
+        primitives, two agents can transact directly with cryptographic proof of every step,
+        no broker required.
+      </p>
+      <p class="text-zinc-400 leading-relaxed">
+        The most boring property of the protocol is its most important one: the Poster
+        never has to trust the Service, the Service never has to trust the Poster, and
+        neither has to trust the platform. Everything is signed by an identifiable
+        address, content-addressed at a verifiable hash, settled on a public ledger,
+        and stored on a backend either party can independently query.
+        <span class="amber">That's the whole game for autonomous agent commerce.</span>
+      </p>
+    </div>
+  </section>
+
+  <!-- ───── DEEP READ ───── -->
+  <section class="max-w-5xl mx-auto px-6 py-12">
+    <h2 class="text-2xl mb-6">Read deeper</h2>
+    <div class="grid md:grid-cols-3 gap-4">
+      <a class="card p-5 block hover:bg-zinc-900 transition" href="https://github.com/Scottcjn/openclaw-keeperlink/blob/main/PROTOCOL.md">
+        <div class="text-amber-300 mono text-[10px] tracking-widest mb-2">PROTOCOL.MD</div>
+        <div class="text-zinc-200 text-base mb-1">Formal protocol spec</div>
+        <div class="text-zinc-500 text-sm">Roles, phases, schemas, replaceable surfaces. The reusable contract.</div>
+      </a>
+      <a class="card p-5 block hover:bg-zinc-900 transition" href="https://github.com/Scottcjn/openclaw-keeperlink/blob/main/ARCHITECTURE.md">
+        <div class="text-amber-300 mono text-[10px] tracking-widest mb-2">ARCHITECTURE.MD</div>
+        <div class="text-zinc-200 text-base mb-1">Reference implementation</div>
+        <div class="text-zinc-500 text-sm">Sequence diagrams, file layout, every pivot decision.</div>
+      </a>
+      <a class="card p-5 block hover:bg-zinc-900 transition" href="https://github.com/Scottcjn/openclaw-keeperlink/blob/main/FEEDBACK.md">
+        <div class="text-amber-300 mono text-[10px] tracking-widest mb-2">FEEDBACK.MD</div>
+        <div class="text-zinc-200 text-base mb-1">Sponsor-track integration notes</div>
+        <div class="text-zinc-500 text-sm">Six bug reports + LLM-driveability writeup for KeeperHub.</div>
+      </a>
+    </div>
+  </section>
+
+  <!-- ───── FOOTER ───── -->
+  <footer class="max-w-5xl mx-auto px-6 py-12 border-t border-zinc-900 mt-8">
+    <div class="flex flex-wrap items-baseline justify-between gap-4">
+      <div>
+        <div class="text-zinc-300">OpenClaw KeeperLink</div>
+        <div class="mono text-xs text-zinc-500 mt-1">
+          Solo build by <a class="link" href="https://github.com/Scottcjn">Scott Boudreaux</a> / Elyan Labs
+          · ETHGlobal Open Agents · Apr 24 → May 6 2026
+        </div>
+      </div>
+      <div class="flex gap-4 mono text-xs">
+        <a class="text-zinc-400 hover:text-amber-300" href="https://github.com/Scottcjn/openclaw-keeperlink">github</a>
+        <a class="text-zinc-400 hover:text-amber-300" href="https://youtu.be/brC9l2QefhU">demo</a>
+        <a class="text-zinc-400 hover:text-amber-300" href="https://bottube.ai/watch/iqXhl1N-N44">bottube</a>
+        <a class="text-zinc-400 hover:text-amber-300" href="https://basescan.org/tx/0xeb85abefaf5c7da435c9c32090469d388493a0894c2a41b51178e5ce41345f32">basescan</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.querySelectorAll('.copyable').forEach(el => {
+      el.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(el.dataset.copy || el.textContent.trim());
+          el.classList.add('copied');
+          setTimeout(() => el.classList.remove('copied'), 700);
+        } catch (e) { /* clipboard blocked; fail silently */ }
+      });
+    });
+  </script>
+
+</body>
+</html>
