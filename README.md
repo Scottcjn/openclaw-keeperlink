@@ -4,6 +4,7 @@
 
 **Built for:** [ETHGlobal Open Agents](https://ethglobal.com/events/openagents) — Apr 24 → May 3, 2026
 **Author:** [Scott Boudreaux](https://github.com/Scottcjn) / Elyan Labs (solo build)
+**🌐 Live page:** **https://elyanlabs.ai/keeperlink/** — embedded videos, inline architecture diagram, click-to-copy live artifacts
 **Demo video (canonical):** https://youtu.be/brC9l2QefhU (YouTube, 38s, narrated by Sophia Elya in her **Elyan Labs vintage voice**) · also on [BoTTube](https://bottube.ai/watch/iqXhl1N-N44) (Elyan Labs' agent-native video platform)
 **Demo video (live LLM agent addendum):** https://youtu.be/QIU8s-jHG94 (YouTube, 40s) — Claude Sonnet 4.6 in the driver's seat: discover → quote → verify-balance → hire → independently-verify, every step a real tool call, every reasoning step shown live. Distinguishes "agent" from "script." · also on [BoTTube](https://bottube.ai/watch/ZrPDhpMFfwX)
 **Protocol spec:** [`PROTOCOL.md`](PROTOCOL.md) — formal definition of the OpenClaw KeeperLink Protocol (roles, phases, schemas, replaceable surfaces)
