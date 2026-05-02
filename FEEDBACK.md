@@ -182,6 +182,24 @@ When I flipped the demo from Sepolia to Base mainnet at the wire on May 2, six n
 
 6. **`transactionHash` field naming** — KH's swap response returns the camelCase `transactionHash`, not the more common `tx_hash` / `txHash`. Agent-side parsers built for one convention silently miss the other (in our case, `_find_tx_hash` matched on the substring `"tx"` and dropped `transactionHash`, producing the misleading "workflow response did not include a tx hash" error on successful swaps). **Suggestion:** publish the response schema (Zod or JSON-Schema) for each action so agent-side code can be matcher-free.
 
+### 2.11 LLM-driveability test — Day 9 evening
+
+Late on May 2, I built an actual LLM-in-the-loop variant (`scripts/run_demo_agent.py`) where Claude Sonnet 4.6 holds the orchestration role instead of a deterministic script. The model is given five tools that wrap the existing OpenClaw service: `discover_executor` (AXL), `get_market_quote` (Uniswap Trading API), `verify_balance` (Base RPC), `hire_agent_for_swap` (subprocess of the existing `run_demo.py`), and `verify_settlement` (Base RPC). The LLM forms a multi-step plan, calls each tool, reasons about each result, and only then commits to spending real USDC. A hard-coded budget guard caps `hire_agent_for_swap` at one invocation per process so an over-eager model can't drain the wallet.
+
+**It worked the first time the bug fixes settled.** The model called `discover_executor`, read the `pricing` payload (`scheme: exact, network: eip155:8453, asset: <USDC>, amount: 10000`), called `get_market_quote` with the matching token pair, called `verify_balance` to confirm the wallet could pay, and then called `hire_agent_for_swap` with a clean `JobRequest`. The settlement landed on Base mainnet, the model called `verify_settlement` against an independent RPC, and produced a clean PROOF receipt. Demo video at https://bottube.ai/watch/ZrPDhpMFfwX.
+
+**What this validates about KeeperHub specifically:**
+
+1. **The MCP surface is genuinely agent-shaped.** The model didn't need any KH-specific knowledge to drive the swap — `execute_protocol_action(actionType="uniswap/swap-exact-input", params={...})` is concise enough that an LLM with no exposure to KH can emit it correctly given the action schema. That's the whole point of KH and it works.
+
+2. **The discovery payload is well-formed for autonomous evaluation.** The Service's `pricing` block (asset, amount, payTo, maxTimeoutSeconds, network) carries enough structure for the LLM to reason about whether the price is fair without any pre-baked rules. The model spontaneously cross-checked the executor's 10,000-atomic fee (0.01 USDC) against its own quote of the swap value and accepted it.
+
+3. **Hard-stop budget enforcement belongs at the agent layer, not at KH.** I built it on my side; KH doesn't need it. But the lesson is: any docs-and-onboarding for agent builders should remind them that KH-managed wallets WILL execute whatever `execute_protocol_action` calls land, so cost-control is the agent author's job. A "best practices for agent authors" doc page would be valuable.
+
+4. **The `transactionHash` parsing pitfall (§2.10 #6) is amplified for LLMs.** When my own `_find_tx_hash` matcher silently dropped the camelCase response, the model got back `{"ok": false, "tx_hash": null}` and correctly refused to claim success — *but it had no way to recover*. A canonical response schema (or even a sentence in docs: "swap responses use `transactionHash`") would prevent this dead-end for autonomous agents that can't introspect a missing-key error and rewrite their parser.
+
+**One concrete additional suggestion for KH that this exercise surfaced:** publish a small **"agent prompt fragment"** alongside each action in the bazaar — a 2-3 sentence description in second person ("You can call this action when…") plus the JSON Schema for params. Agent builders could copy that fragment directly into their LLM's system prompt. A polished tool-use loop wrapping KH would then be ~20 lines of glue per action instead of the ~370-line custom script I wrote. That's the difference between "KH is agent-callable" and "KH is *agentic-by-default*."
+
 ---
 
 ## Meta: honest overall take
