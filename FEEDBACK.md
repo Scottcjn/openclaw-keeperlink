@@ -166,6 +166,22 @@ The Uniswap V3 plugin is covered in Section 1. **Aerodrome** I briefly tested vi
 4. **Decimals / pricing-meta fields in x402 envelopes** — `extra.decimals: 6` or similar would prevent the "is `10000` a dollar or a cent" lookup.
 5. **MCP `execute_protocol_action` result unwrap helper** — or a content-type negotiation that returns the parsed result directly.
 
+### 2.10 Day-9 (May 2 2026) submission-day findings — corrections + new
+
+When I flipped the demo from Sepolia to Base mainnet at the wire on May 2, six new integration issues surfaced. They're all real (each blocked the demo until fixed) and small enough to be cheap to address. Listing them here for the framework feedback bounty:
+
+1. **The MCP endpoint is `/mcp`, not `/api/mcp`** — supersedes §2.3 ¶1. As of today, `https://app.keeperhub.com/mcp` is what returns HTTP 200 with a valid JSON-RPC response; `https://app.keeperhub.com/api/mcp` returns the SPA HTML 404 page. My §2.3 note had it inverted; the endpoint may have moved or my earlier diagnosis was wrong. Either way, today's truth is `/mcp` on the host root.
+
+2. **MCP requires `Accept: application/json, text/event-stream`** — without it, KeeperHub's edge serves the SPA HTML page instead of JSON-RPC. Most HTTP libraries don't auto-set this, so a clean curl works while a default `httpx.Client(...)` silently fails JSON-decode. **Suggestion:** call this header out in any "use the MCP from your own client" doc snippet, or have the server return `406 Not Acceptable` with a hint when the header is missing.
+
+3. **`/mcp` issues HTTP 308 → `/mcp/`** — clients with `follow_redirects=False` (httpx default, requests with `allow_redirects=False`) read the redirect's body as the JSON-RPC response and crash at parse time. **Suggestion:** either accept both forms server-side, or document the trailing slash, or both.
+
+4. **`uniswap/swap-exact-input` requires V3-shape params** — `fee` (uint24), `recipient`, `amountOutMinimum`, `sqrtPriceLimitX96`. KH validates each one and bails with `Invalid function arguments: params.X is missing` before reaching the chain. The label "Uniswap V3" is honest, but the agent-facing promise of "high-level DeFi action" is broken — agents either need to know V3 mechanics (per-pair fee tiers, slippage math, sqrt-price encoding) or call `quote-exact-input` first to derive them. **Suggestion:** ship a higher-level `uniswap/swap-exact-input-simple` that takes only `tokenIn/tokenOut/amountIn/slippageBps`, auto-quotes for fee tier, and emits a single round-trip.
+
+5. **No bundled approve+swap action** — agents must `execute_contract_call` for `erc20.approve(router, amount)` separately, then `uniswap/swap-exact-input`. That's two round-trips for one logical operation. The first swap on a fresh wallet always fails `Error(STF)` until the agent figures out to approve first. **Suggestion:** an `auto_approve: true` flag on swap actions that emits the approve as a sub-step when allowance is short, or a documented `swap-with-permit` variant for Permit2-aware tokens.
+
+6. **`transactionHash` field naming** — KH's swap response returns the camelCase `transactionHash`, not the more common `tx_hash` / `txHash`. Agent-side parsers built for one convention silently miss the other (in our case, `_find_tx_hash` matched on the substring `"tx"` and dropped `transactionHash`, producing the misleading "workflow response did not include a tx hash" error on successful swaps). **Suggestion:** publish the response schema (Zod or JSON-Schema) for each action so agent-side code can be matcher-free.
+
 ---
 
 ## Meta: honest overall take
