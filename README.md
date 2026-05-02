@@ -4,8 +4,10 @@
 
 **Built for:** [ETHGlobal Open Agents](https://ethglobal.com/events/openagents) — Apr 24 → May 3, 2026
 **Author:** [Scott Boudreaux](https://github.com/Scottcjn) / Elyan Labs (solo build)
-**Demo video:** https://bottube.ai/watch/iqXhl1N-N44 (BoTTube, 38s, narrated by Sophia Elya in her **Elyan Labs vintage voice** — XTTS v2 with a cloned Britney-style reference; the v0.3.0 Edison-cylinder-spoken model is on roadmap)
+**Demo video (canonical):** https://bottube.ai/watch/iqXhl1N-N44 (BoTTube, 38s, narrated by Sophia Elya in her **Elyan Labs vintage voice**)
+**Demo video (live LLM agent addendum):** https://bottube.ai/watch/ZrPDhpMFfwX (BoTTube, 40s) — Claude Sonnet 4.6 in the driver's seat: discover → quote → verify-balance → hire → independently-verify, every step a real tool call, every reasoning step shown live. Distinguishes "agent" from "script."
 **Protocol spec:** [`PROTOCOL.md`](PROTOCOL.md) — formal definition of the OpenClaw KeeperLink Protocol (roles, phases, schemas, replaceable surfaces)
+**Live LLM agent script:** [`scripts/run_demo_agent.py`](scripts/run_demo_agent.py) — Claude tool-use loop wrapping the existing service. Run with `python3 scripts/run_demo_agent.py`.
 **Live Base mainnet tx (sample):** [`0xeb85abefaf5c7da435c9c32090469d388493a0894c2a41b51178e5ce41345f32`](https://basescan.org/tx/0xeb85abefaf5c7da435c9c32090469d388493a0894c2a41b51178e5ce41345f32) — block 45453249
 **0G receipt rootHash (sample):** `0xa45c313d03fec00119069838e91f9e52f6f8f578174a7e72e779e7b1aaaba871` (Galileo testnet, downloaded + content-matched + signature-verified by demo orchestrator)
 
