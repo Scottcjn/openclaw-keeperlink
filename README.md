@@ -43,7 +43,7 @@ One product. One demo. **Five sponsor integrations** in a single coherent loop.
 
 | Sponsor | Role | Code entrypoint |
 |---|---|---|
-| **Gensyn AXL** | Encrypted P2P transport (kill-tested Apr 25 in `docs/kill-tests/axl-day2.md`; demo uses direct HTTP for recording focus — see ARCHITECTURE.md) | `node-a/axl-config.json`, `node-b/axl-config.json`, `shared/axl_client.py` |
+| **Gensyn AXL** | Live encrypted P2P transport — Yggdrasil mesh via 2 dockerized AXL daemons + MCP router sidecar. `keeperlink` service registered with the router, routable via `POST /mcp/{node_b_peer_id}/keeperlink` from Node A. Demo runs through AXL by default (set `AXL_NODE_B_PEER` env). | `docker-compose.yml`, `node-a/axl-config.json`, `node-b/axl-config.json`, `shared/axl_client.py` |
 | **KeeperHub** | Reliable onchain execution (workflow API + MCP `execute_protocol_action`) + native x402 | `shared/keeperhub.py`, `node-b/keeperlink_service.py` |
 | **Uniswap V3** | The actual swap on Base (via KeeperHub's `uniswap/swap-exact-input` action) | `shared/uniswap.py`, `node-b/keeperlink_service.py:call_keeperhub_workflow` |
 | **0G Storage** | Permanent audit receipts (the framework primitive) | `shared/zerog.py`, `shared/audit_envelope.py` |
@@ -61,10 +61,13 @@ cp .env.example .env
 pip install -r requirements.txt
 cd scripts/zerog && npm install && cd ../..
 
-# Start Node B (the remote specialist) in one terminal
-python3 -u node-b/keeperlink_service.py
+# Bring up the AXL daemon stack (Node A + Node B + MCP router)
+docker compose up -d
+# Read Node B's AXL peer ID from its log:
+docker logs openclaw-node-b 2>&1 | grep "Our Public Key" | head -1
+export AXL_NODE_B_PEER=<paste-it-here>
 
-# In another terminal: run the demo
+# Run the demo (uses AXL transport when AXL_NODE_B_PEER is set)
 python3 scripts/run_demo.py
 ```
 
@@ -163,7 +166,7 @@ See [FEEDBACK.md](FEEDBACK.md) for honest integration notes covering Uniswap and
 
 - **0G — Best Agent Framework, Tooling & Core Extensions** — the [OpenClaw Audit Envelope](shared/audit_envelope.py) is a reusable signed/content-addressed proof primitive any OpenClaw agent mesh can produce + verify, with 0G Storage as the persistence backend. That's a framework-level contribution, not just a one-off receipt.
 - **KeeperHub — Focus 2** (OpenClaw integration + x402 payments) — both rubric items hit in one build.
-- **Gensyn — AXL P2P Transport** — kill-tested Apr 25 (full primitive proven, see `docs/kill-tests/axl-day2.md`); production code path uses AXL routing in `node-a/poster.py` + `node-b/keeperlink_service.py`. Live demo uses direct HTTP between nodes for recording focus (see ARCHITECTURE.md "Path B" note).
+- **Gensyn — AXL P2P Transport** — Live AXL daemon stack via `docker compose up -d`: 2 AXL nodes connected over Yggdrasil mesh + MCP router sidecar with `keeperlink` service registered. Demo orchestrator routes hire requests through Node A's AXL HTTP API (`POST /mcp/{peer_id}/keeperlink`), proving the labor-market transport story end-to-end.
 - **Uniswap — Best Trading API Integration** — swap executed via Uniswap V3 on Base through KeeperHub's `uniswap/swap-exact-input` action; integration depth on the KeeperHub side.
 - **KeeperHub Builder Feedback Bounty** — `FEEDBACK.md` covers both Uniswap qualification + this bonus entry.
 
