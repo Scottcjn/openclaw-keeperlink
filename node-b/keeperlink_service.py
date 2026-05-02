@@ -328,13 +328,24 @@ def _fetch_workflow_version_hash(client: KeeperHubClient, config: ServiceConfig)
 
 
 def call_keeperhub_workflow(job: JobRequest, config: ServiceConfig) -> WorkflowDispatchResult:
+    """Dispatch the swap to KeeperHub.
+
+    Strategy (revised 2026-05-01 due to deadline):
+    - First try invoking the published workflow `keeperlink-swap` (v4 architecture).
+    - On 404 (workflow not yet published to org), fall back to KeeperHub's MCP
+      `execute_protocol_action` with `uniswap/swap-exact-input`. Same KeeperHub
+      execution surface, same Uniswap V3 plugin, but no workflow object required.
+      This makes the demo runnable without manually creating the workflow on
+      app.keeperhub.com first.
+    """
     if not config.keeperhub_api_key:
         return WorkflowDispatchResult(ok=False, error="KEEPERHUB_API_KEY is not set")
 
+    amount_in_atomic = human_to_atomic(job.amount_in, token_decimals(job.token_in))
     workflow_input = {
         "tokenIn": normalize_token(job.token_in),
         "tokenOut": normalize_token(job.token_out),
-        "amountIn": human_to_atomic(job.amount_in, token_decimals(job.token_in)),
+        "amountIn": amount_in_atomic,
         "chainId": BASE_CHAIN_ID,
         "chain": job.chain,
         "jobId": job.job_id,
@@ -346,12 +357,52 @@ def call_keeperhub_workflow(job: JobRequest, config: ServiceConfig) -> WorkflowD
     try:
         with KeeperHubClient(cfg) as keeperhub:
             version_hash = _fetch_workflow_version_hash(keeperhub, config)
+            # Path A: try the published workflow first
             response = keeperhub._client.post(
                 f"/mcp/workflows/{config.workflow_slug}/call",
                 json=workflow_input,
             )
             data = response.json()
-            if response.status_code >= 400:
+            if response.status_code == 404:
+                # Path B: fall back to direct execute_protocol_action via MCP
+                emit("workflow_not_found_falling_back",
+                     slug=config.workflow_slug,
+                     fallback="execute_protocol_action:uniswap/swap-exact-input")
+                action_payload = {
+                    "jsonrpc": "2.0",
+                    "id": job.job_id,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "execute_protocol_action",
+                        "arguments": {
+                            "actionType": "uniswap/swap-exact-input",
+                            "params": {
+                                "network": str(BASE_CHAIN_ID),
+                                "tokenIn": normalize_token(job.token_in),
+                                "tokenOut": normalize_token(job.token_out),
+                                "amountIn": amount_in_atomic,
+                            },
+                        },
+                    },
+                }
+                response = keeperhub._client.post("/mcp", json=action_payload)
+                data = response.json()
+                if response.status_code >= 400:
+                    return WorkflowDispatchResult(
+                        ok=False,
+                        response=data if isinstance(data, dict) else {"raw": data},
+                        workflow_version_hash=version_hash,
+                        error=f"execute_protocol_action returned {response.status_code}",
+                    )
+                # MCP wraps result in result.content[0].text (text JSON)
+                if isinstance(data, dict) and "result" in data:
+                    content = data["result"].get("content", [])
+                    if content and isinstance(content[0], dict) and content[0].get("type") == "text":
+                        try:
+                            data = json.loads(content[0]["text"])
+                        except (json.JSONDecodeError, KeyError):
+                            pass
+            elif response.status_code >= 400:
                 execution_id = str(data.get("executionId") or data.get("execution_id") or "")
                 return WorkflowDispatchResult(
                     ok=False,

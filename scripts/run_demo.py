@@ -132,7 +132,7 @@ def cascade_layers(layers: list[tuple[str, str]]) -> None:
 
 # ─── Demo state ────────────────────────────────────────────────────────────
 
-NODE_B_URL = os.environ.get("KEEPERLINK_DIRECT_HTTP_URL", "http://127.0.0.1:9004")
+NODE_B_URL = os.environ.get("KEEPERLINK_DIRECT_HTTP_URL", "http://127.0.0.1:9004/keeperlink")
 DEMO_INTENT = os.environ.get("DEMO_INTENT", "swap 5 USDC for WETH on Base")
 DEMO_TOKEN_IN = os.environ.get("DEMO_TOKEN_IN", "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913")
 DEMO_TOKEN_OUT = os.environ.get("DEMO_TOKEN_OUT", "0x4200000000000000000000000000000000000006")
