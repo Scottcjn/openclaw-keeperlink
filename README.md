@@ -86,14 +86,15 @@ Demo completes in ~30 seconds. You'll see a **5-layer cascade animation** light 
 | `UNISWAP_API_KEY` | [developers.uniswap.org/dashboard](https://developers.uniswap.org/dashboard) (optional — KeeperHub wraps Uniswap natively, but the env var is here in case you want to hit the standalone Trading API) |
 | `ZEROG_PRIVATE_KEY` | Any Ethereum private key funded on [0G Galileo testnet](https://faucet.0g.ai) (~0.1 OG is plenty for many demo uploads) |
 | `NODE_B_PRIVATE_KEY` | Node B's identity key for signing audit envelopes. Generate with `python3 -c "from eth_account import Account; print('0x' + Account.create('node-b').key.hex())"` |
-| `BASE_RPC_URL` | Default: `https://sepolia.base.org` (free public RPC) |
+| `BASE_RPC_URL` | Default: `https://mainnet.base.org` (free public RPC). Set to `https://sepolia.base.org` + `BASE_CHAIN_ID=84532` to fall back to Sepolia — the chain config is env-driven end-to-end. |
+| `BASE_CHAIN_ID` | Default: `8453` (Base mainnet). |
 
-The KeeperHub-managed wallet (Turnkey MPC) needs **test ETH + test USDC on Base Sepolia** for the actual swap demo. Find your org's wallet address in the KeeperHub dashboard, then claim from these free faucets:
+The KeeperHub-managed wallet (Turnkey MPC) needs **a small amount of ETH for gas + USDC as the swap input** on Base. The reference run uses ≤$0.10 USDC per swap. Find your org's wallet address in the KeeperHub dashboard (or `~/.config/keeperhub/keys.json`), then fund it:
 
-- **Base Sepolia ETH**: [coinbase.com/faucets/base-ethereum-sepolia-faucet](https://www.coinbase.com/faucets/base-ethereum-sepolia-faucet)
-- **Sepolia USDC**: [faucet.circle.com](https://faucet.circle.com/) → select "Base Sepolia"
+- **Recommended (mainnet, fastest):** buy ~0.0015 ETH and ~5 USDC on Coinbase, withdraw both directly to the KH wallet selecting **Base** as the network (no withdrawal fee). Total cost ~$10, gives you ~30+ demo runs.
+- **Alternative (Sepolia testnet):** flip `BASE_CHAIN_ID=84532` + `BASE_RPC_URL=https://sepolia.base.org` in `.env`, then claim from [coinbase.com/faucets/base-ethereum-sepolia-faucet](https://www.coinbase.com/faucets/base-ethereum-sepolia-faucet) for ETH + [faucet.circle.com](https://faucet.circle.com/) for USDC. Note: most Base Sepolia ETH faucets gate on holding mainnet ETH, so the mainnet path is often the path of less friction even though it costs real money.
 
-No real money required — the entire demo runs on free testnet assets.
+The first swap from a fresh wallet auto-runs `usdc.approve(uniswapV3Router, MAX_UINT256)` once via `_ensure_token_allowance` in `keeperlink_service.py` — judges who clone-and-run won't hit the standard "STF" failure mode.
 
 ---
 
