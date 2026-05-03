@@ -7,10 +7,9 @@
 **Built for:** [ETHGlobal Open Agents](https://ethglobal.com/events/openagents) — Apr 24 → May 3, 2026
 **Author:** [Scott Boudreaux](https://github.com/Scottcjn) / Elyan Labs (solo build)
 **🌐 Live page:** **https://elyanlabs.ai/keeperlink/** — embedded videos, inline architecture diagram, click-to-copy live artifacts
-**Demo video (ETHGlobal submission, 3:44):** see the [public showcase](https://ethglobal.com/showcase/openclaw-keeperlink-bvape) — full walkthrough with per-step holds so each transaction beat (discovery → x402 sign → KH dispatch → on-chain settlement → 0G receipt → round-trip verify → LLM-driven repeat) lands instead of rushing.
+**Demo video (ETHGlobal submission, 3:59):** see the [public showcase](https://ethglobal.com/showcase/openclaw-keeperlink-bvape). Grok-Sophia "Welcome to Elyan Labs" intro → full walkthrough with per-step holds (discovery → x402 sign → KH dispatch → on-chain settlement → 0G receipt → round-trip verify → LLM-driven repeat) → Grok-Sophia outtake. Body narration is XTTS Sophia, voice-cloned from the Grok intros for continuity.
 **Short canonical (38s YouTube preview):** https://youtu.be/brC9l2QefhU · also on [BoTTube](https://bottube.ai/watch/iqXhl1N-N44) — fast-paced overview that fits BoTTube's science-tech 120s cap.
 **Live LLM agent addendum (40s YouTube):** https://youtu.be/QIU8s-jHG94 — Claude Sonnet 4.6 in the driver's seat: discover → quote → verify-balance → hire → independently-verify, every step a real tool call, every reasoning step shown live. Distinguishes "agent" from "script." · also on [BoTTube](https://bottube.ai/watch/ZrPDhpMFfwX)
-**2:16 mid-length YouTube cut:** https://youtu.be/LcTAyTK6o7A — the v2 we initially submitted before stretching to v3.
 **Protocol spec:** [`PROTOCOL.md`](PROTOCOL.md) — formal definition of the OpenClaw KeeperLink Protocol (roles, phases, schemas, replaceable surfaces)
 **Live LLM agent script:** [`scripts/run_demo_agent.py`](scripts/run_demo_agent.py) — Claude tool-use loop wrapping the existing service. Run with `python3 scripts/run_demo_agent.py`.
 **Live Base mainnet tx (sample):** [`0xeb85abefaf5c7da435c9c32090469d388493a0894c2a41b51178e5ce41345f32`](https://basescan.org/tx/0xeb85abefaf5c7da435c9c32090469d388493a0894c2a41b51178e5ce41345f32) — block 45453249
