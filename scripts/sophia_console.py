@@ -12,14 +12,17 @@ In Google Meet:
     Settings → Audio → Microphone → "Monitor of Sophia_Mic_Combined"
 """
 from __future__ import annotations
-import hashlib, json, os, shutil, subprocess, time
+import hashlib, json, os, re, shutil, subprocess, time
 from pathlib import Path
 from threading import Lock
 from flask import Flask, jsonify, render_template_string, request
 import httpx
 
 # --------------- Config ---------------
+HERE = Path(__file__).resolve().parent
 CLIP_DIR = Path("/tmp/sophia_clips")
+QA_CACHE_DIR = HERE / "qa_cache"
+QA_DATA_PATH = HERE / "data" / "qa_pairs.json"
 CACHE_DIR = Path("/tmp/sophia_cache"); CACHE_DIR.mkdir(exist_ok=True)
 SINK = "sophia_dual"  # Plays to both speakers + virtual mic
 ABACUS_TOKEN_PATH = Path.home() / ".config/abacus/api_token"
@@ -118,6 +121,39 @@ def call_llm(user_text: str) -> tuple[str, str, float]:
     r.raise_for_status()
     return r.json()["choices"][0]["message"]["content"].strip(), "local-power8", time.monotonic()-t0
 
+# --------------- Q&A cache + fuzzy match ---------------
+QA_PAIRS = []
+if QA_DATA_PATH.exists():
+    QA_PAIRS = json.loads(QA_DATA_PATH.read_text())["qa_pairs"]
+
+def normalize(s: str) -> str:
+    return re.sub(r"[^a-z0-9 ]", " ", s.lower()).strip()
+
+def match_qa(query: str) -> dict | None:
+    """Return the best-matching QA dict, or None if no good match."""
+    q_norm = normalize(query)
+    q_words = set(q_norm.split())
+    best = (0.0, None)
+    for qa in QA_PAIRS:
+        cache_path = QA_CACHE_DIR / f"{qa['id']}.wav"
+        if not cache_path.exists():
+            continue
+        for trigger in qa["match"]:
+            t_norm = normalize(trigger)
+            # Substring match (strongest signal)
+            if t_norm in q_norm:
+                return qa
+            # Bag-of-words overlap fallback
+            t_words = set(t_norm.split())
+            if not t_words:
+                continue
+            overlap = len(q_words & t_words) / len(t_words)
+            if overlap > best[0]:
+                best = (overlap, qa)
+    if best[0] >= 0.7:
+        return best[1]
+    return None
+
 def synthesize(text: str) -> str:
     cache_key = hashlib.sha1(f"1.0:{text}".encode()).hexdigest()[:16]
     out = CACHE_DIR / f"{cache_key}.wav"
@@ -187,18 +223,28 @@ textarea{width:100%;background:#1a1a1d;color:#e8e8ea;border:1px solid #2a2a2d;bo
 <hr>
 
 <section>
-  <h2>Live Sophia (LLM → XTTS, ~17s)</h2>
-  <textarea id="q" placeholder="Type a question for Sophia..."></textarea>
-  <div class="suggest">
-    <button onclick="setQ('Why is x402 the right payment surface for agent jobs?')">x402 why</button>
-    <button onclick="setQ('How does the agent verify the swap actually settled?')">verify swap</button>
-    <button onclick="setQ('What problem does KeeperLink solve that existing agent platforms do not?')">vs others</button>
-    <button onclick="setQ('In one sentence, what is the role of 0G in this system?')">0G role</button>
-    <button onclick="setQ('How long did this take to build?')">build time</button>
-  </div>
+  <h2>Smart Ask (auto: cached &lt;1s if matched, else live ~17s)</h2>
+  <textarea id="q" placeholder="Type or paste judge's question. Sophia auto-matches cached Q&A; falls through to live LLM if no match."></textarea>
   <div class="bar">
-    <button class="live" onclick="askSophia()">🎤 Ask Sophia →</button>
+    <button class="live" onclick="askSophia(false)">🎯 Ask Sophia (smart)</button>
+    <button onclick="askSophia(true)" style="background:#3a3a3d;color:#cde">force live LLM</button>
     <span class="status" id="livestat">Idle</span>
+  </div>
+</section>
+
+<hr>
+
+<section>
+  <h2>Cached Q&A (instant — click directly OR type and Smart-Ask will pick the right one)</h2>
+  <div class="grid">
+    {% for qa in qa_pairs %}
+    <div class="clip">
+      <div class="row"><span class="label">{{qa.id.replace('_',' ').title()}}</span></div>
+      <div class="text">"{{qa.answer[:140]}}{% if qa.answer|length > 140 %}…{% endif %}"</div>
+      <div class="text" style="color:#7a8a8a;font-style:italic">triggers: {{qa.match | join(' / ')}}</div>
+      <button onclick="api('/qa/{{qa.id}}')">▶ {{qa.id.replace('_',' ')}}</button>
+    </div>
+    {% endfor %}
   </div>
 </section>
 
@@ -221,16 +267,24 @@ async function api(path){
   } catch(e){ log('  err ' + e, 'err'); }
 }
 function setQ(t){ document.getElementById('q').value = t; }
-async function askSophia(){
+async function askSophia(forceLive){
   const q = document.getElementById('q').value.trim();
   if (!q) { log('  empty question', 'err'); return; }
-  document.getElementById('livestat').textContent = 'Thinking...';
-  log('💬 ' + q);
+  document.getElementById('livestat').textContent = forceLive ? 'Live LLM thinking...' : 'Matching...';
+  log('💬 ' + q + (forceLive ? ' (force live)' : ''));
   try {
-    const r = await fetch('/ask', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({q})});
+    const r = await fetch('/ask', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({q, live: forceLive})});
     const j = await r.json();
-    document.getElementById('livestat').textContent = j.ok ? `Played (${j.llm_s.toFixed(1)}s + ${j.xtts_s.toFixed(1)}s)` : 'Failed';
-    log('  💭 ' + (j.answer || j.error), j.ok ? 'ok' : 'err');
+    if (j.ok && j.source === 'cache') {
+      document.getElementById('livestat').textContent = `INSTANT (cache: ${j.qa_id})`;
+      log('  ⚡ ' + j.qa_id + ': ' + j.answer.slice(0,100), 'ok');
+    } else if (j.ok) {
+      document.getElementById('livestat').textContent = `LIVE played (${j.llm_s.toFixed(1)}s LLM + XTTS)`;
+      log('  💭 ' + j.answer, 'ok');
+    } else {
+      document.getElementById('livestat').textContent = 'Failed';
+      log('  err ' + j.error, 'err');
+    }
   } catch(e){
     document.getElementById('livestat').textContent = 'Error';
     log('  err ' + e, 'err');
@@ -264,7 +318,7 @@ def index():
     clips = load_clips()
     for k, c in clips.items():
         c["transcript"] = CLIP_TRANSCRIPTS.get(k, "")
-    return render_template_string(HTML, clips=clips)
+    return render_template_string(HTML, clips=clips, qa_pairs=QA_PAIRS)
 
 @app.route("/play/<key>", methods=["POST"])
 def play(key):
@@ -282,19 +336,42 @@ def stop():
 def ask():
     data = request.get_json(force=True)
     q = (data.get("q") or "").strip()
+    force_live = bool(data.get("live"))
     if not q:
         return jsonify(ok=False, error="empty"), 400
+
+    # Step 1: try fuzzy match against pre-cached Q&A (instant)
+    if not force_live:
+        hit = match_qa(q)
+        if hit:
+            cache_wav = str(QA_CACHE_DIR / f"{hit['id']}.wav")
+            play_path(cache_wav)
+            return jsonify(ok=True, source="cache", qa_id=hit["id"],
+                           answer=hit["answer"], llm_s=0.0, xtts_s=0.0)
+
+    # Step 2: fall through to live LLM → XTTS
     try:
         answer, backend, llm_s = call_llm(q)
         wav = synthesize(answer)
         play_path(wav)
-        return jsonify(ok=True, answer=answer, backend=backend, llm_s=llm_s, xtts_s=0.0, wav=wav)
+        return jsonify(ok=True, source="live", answer=answer, backend=backend,
+                       llm_s=llm_s, xtts_s=0.0, wav=wav)
     except Exception as e:
         # On any failure, fire the stall clip
         clips = load_clips()
         if "6" in clips:
             play_path(clips["6"]["path"])
         return jsonify(ok=False, error=str(e), fallback_played="6"), 500
+
+@app.route("/qa/<qa_id>", methods=["POST"])
+def play_qa(qa_id):
+    """Direct-fire a pre-cached Q&A clip by id."""
+    cache_wav = QA_CACHE_DIR / f"{qa_id}.wav"
+    if not cache_wav.exists():
+        return jsonify(ok=False, error=f"no qa clip {qa_id}"), 404
+    qa = next((q for q in QA_PAIRS if q["id"] == qa_id), None)
+    play_path(str(cache_wav))
+    return jsonify(ok=True, qa_id=qa_id, answer=qa["answer"] if qa else "")
 
 if __name__ == "__main__":
     print(f"Sophia Console on http://127.0.0.1:5151")

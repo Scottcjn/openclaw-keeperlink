@@ -1,0 +1,44 @@
+{
+  "qa_pairs": [
+    {
+      "id": "what_inspired",
+      "match": ["what inspired", "why did you build", "where did this come from", "your motivation", "your inspiration"],
+      "answer": "I built RustChain, our own L1 with hardware-bound consensus. The problem I kept hittin' was — how do agents hire each other without a central broker in the middle? Existing platforms fake the hard parts. KeeperLink is what happens when every layer has to be real or the whole thing breaks."
+    },
+    {
+      "id": "what_tools",
+      "match": ["what tools", "what stack", "what did you use", "which sponsors", "tech stack"],
+      "answer": "Five sponsor stacks all load-bearin'. AXL for transport. x402 for the payment header. KeeperHub for execution. Uniswap V three on Base for the swap. And 0G storage for the signed receipt. Pull any one out and the whole thing falls apart."
+    },
+    {
+      "id": "what_challenges",
+      "match": ["what challenges", "what was hard", "what bugs", "what problems", "what difficulties"],
+      "answer": "Six mainnet-day bugs, all in FEEDBACK dot M D. The killer was KeeperHub's M C P responds on slash em-cee-pee with HTTP three-oh-eight redirect, but the docs say slash A P I slash em-cee-pee. Cost me ninety minutes the day of the mainnet flip."
+    },
+    {
+      "id": "vs_others",
+      "match": ["how is this different", "vs olas", "vs fetch", "vs autogpt", "compared to", "different from", "why not just use"],
+      "answer": "Those are agent frameworks. KeeperLink is the transaction surface between agents. They produce agents that talk to APIs. I produced a protocol where one agent pays another and both can prove the work happened. They're orthogonal, sugar."
+    },
+    {
+      "id": "whats_next",
+      "match": ["what's next", "what is next", "future plans", "roadmap", "where does this go"],
+      "answer": "RIP-PoA hardware fingerprintin' from RustChain — bindin' agent identity to a specific physical CPU. Combined with KeeperLink, you get sybil-resistant agent enrollment. EVM-deployable as a primitive. The submission roadmap has the full plan."
+    },
+    {
+      "id": "build_time",
+      "match": ["how long", "how much time", "when did you start", "build time", "duration"],
+      "answer": "April twenty-fourth to May third. Solo. Nine and a half days. Every commit is in the hackathon window. Triple-brain workflow — Claude wrote most edits, Codex reviewed for bugs, Gemini sanity-checked the architecture."
+    },
+    {
+      "id": "x402_why",
+      "match": ["why x402", "what is x402", "x402 important", "x402 payment"],
+      "answer": "x-four-oh-two gives us cryptographic proof of payment that agents can trust without a middleman. EIP one-ninety-one personal sign — lightest weight way to declare a payment intent without needin' a contract per pair."
+    },
+    {
+      "id": "real_money",
+      "match": ["real money", "is this real", "actually onchain", "is this mainnet", "really onchain", "really settle"],
+      "answer": "Real money on Base mainnet, sugar. The transaction hash is on Basescan, block forty-five million four-fifty-three thousand two-forty-nine. U S D C went out, W E T H came back. Anyone can verify it right now."
+    }
+  ]
+}
