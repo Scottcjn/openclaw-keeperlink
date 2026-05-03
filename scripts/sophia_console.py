@@ -29,6 +29,7 @@ ABACUS_TOKEN_PATH = Path.home() / ".config/abacus/api_token"
 ABACUS_URL = "https://routellm.abacus.ai/v1/chat/completions"
 LOCAL_LLM_URL = "http://100.75.100.89:8080/v1/chat/completions"
 XTTS_URL = "http://192.168.0.160:5500/api/tts"
+XTTS_STREAM_URL = "http://192.168.0.160:5500/api/tts-stream"
 ABACUS_MODEL = "claude-haiku-4-5-20251001"
 
 SYSTEM_PROMPT = """You are Sophia, the voice of Elyan Labs.
@@ -155,6 +156,7 @@ def match_qa(query: str) -> dict | None:
     return None
 
 def synthesize(text: str) -> str:
+    """Non-streaming fallback (writes wav file). Used only by old code paths."""
     cache_key = hashlib.sha1(f"1.0:{text}".encode()).hexdigest()[:16]
     out = CACHE_DIR / f"{cache_key}.wav"
     if out.exists():
@@ -165,6 +167,52 @@ def synthesize(text: str) -> str:
     out.write_bytes(r.content)
     print(f"[xtts {time.monotonic()-t0:.1f}s] {out.name}")
     return str(out)
+
+def stream_and_play(text: str) -> tuple[float, int]:
+    """Stream XTTS chunks straight to paplay on sophia_dual. Returns (ttfb_s, bytes)."""
+    global current_proc
+    stop_playback()
+    play_cmd = ["paplay", "--device=" + SINK,
+                "--rate=24000", "--channels=1", "--format=s16le", "--raw"]
+    with play_lock:
+        current_proc = subprocess.Popen(
+            play_cmd, stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+        )
+        proc = current_proc  # local alias to avoid race with later stops
+    print(f"[stream] paplay started pid={proc.pid}")
+    t0 = time.monotonic()
+    first_t = None; total_b = 0; broke = None
+    try:
+        with httpx.stream("POST", XTTS_STREAM_URL,
+                          json={"text": text, "speed": 1.0},
+                          timeout=httpx.Timeout(30, connect=3)) as r:
+            print(f"[stream] HTTP {r.status_code}")
+            r.raise_for_status()
+            for chunk in r.iter_bytes(chunk_size=8192):
+                if not chunk:
+                    continue
+                if proc.poll() is not None:
+                    broke = f"paplay died exit={proc.returncode}"
+                    break
+                try:
+                    proc.stdin.write(chunk)
+                    proc.stdin.flush()
+                except (BrokenPipeError, ValueError) as e:
+                    broke = f"stdin write failed: {e}"
+                    break
+                total_b += len(chunk)
+                if first_t is None:
+                    first_t = time.monotonic() - t0
+                    print(f"[stream] TTFB {first_t:.2f}s {len(chunk)}b")
+    except Exception as e:
+        broke = f"http exc: {e}"
+    finally:
+        if proc.poll() is None:
+            try: proc.stdin.close()
+            except Exception: pass
+    print(f"[stream] done bytes={total_b} ttfb={first_t} broke={broke}")
+    return (first_t or 0.0, total_b)
 
 # --------------- Routes ---------------
 HTML = """
@@ -349,13 +397,12 @@ def ask():
             return jsonify(ok=True, source="cache", qa_id=hit["id"],
                            answer=hit["answer"], llm_s=0.0, xtts_s=0.0)
 
-    # Step 2: fall through to live LLM → XTTS
+    # Step 2: fall through to live LLM → XTTS streaming
     try:
         answer, backend, llm_s = call_llm(q)
-        wav = synthesize(answer)
-        play_path(wav)
-        return jsonify(ok=True, source="live", answer=answer, backend=backend,
-                       llm_s=llm_s, xtts_s=0.0, wav=wav)
+        ttfb, bytes_streamed = stream_and_play(answer)
+        return jsonify(ok=True, source="live-stream", answer=answer, backend=backend,
+                       llm_s=llm_s, ttfb_s=ttfb, bytes=bytes_streamed)
     except Exception as e:
         # On any failure, fire the stall clip
         clips = load_clips()
