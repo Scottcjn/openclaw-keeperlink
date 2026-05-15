@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.14-slim
 WORKDIR /app
 RUN pip install --no-cache-dir aiohttp==3.10.11
 COPY router_and_echo.py /app/
