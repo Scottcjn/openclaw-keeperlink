@@ -1,6 +1,6 @@
 # OpenClaw KeeperLink runtime dependencies
 httpx>=0.28.1          # HTTP client for KeeperHub + Uniswap + AXL transport
-pydantic>=2.6.0        # Schemas (JobRequest, Receipt, X402PaymentProof, OpenClawAuditEnvelope)
+pydantic>=2.13.4        # Schemas (JobRequest, Receipt, X402PaymentProof, OpenClawAuditEnvelope)
 eth-account>=0.13.7    # EIP-191 signing for x402 + audit envelope
 fastapi>=0.110.0       # Node B HTTP server (Path B: direct HTTP between nodes)
 uvicorn>=0.47.0        # ASGI runner for fastapi
