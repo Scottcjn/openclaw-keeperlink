@@ -57,4 +57,4 @@ class AXLClient:
         """POST a JSON-RPC-shaped payload to /mcp/{peer_id}/{service}."""
         resp = self._client.post(f"/mcp/{peer_id}/{service}", json=payload)
         resp.raise_for_status()
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]

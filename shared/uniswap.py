@@ -72,6 +72,6 @@ class UniswapClient:
             "amount": amount,
             "type": trade_type,
         }
-        resp = self._client.get("/quote", params=params)
+        resp = self._client.get("/quote", params=params)  # type: ignore[arg-type]
         resp.raise_for_status()
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]

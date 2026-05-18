@@ -5,7 +5,6 @@ Or as a script: python shared/test_audit_envelope.py
 """
 from __future__ import annotations
 
-import json
 import time
 
 from .audit_envelope import (

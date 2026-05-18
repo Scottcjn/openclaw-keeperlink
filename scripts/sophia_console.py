@@ -12,7 +12,13 @@ In Google Meet:
     Settings → Audio → Microphone → "Monitor of Sophia_Mic_Combined"
 """
 from __future__ import annotations
-import hashlib, json, os, re, shutil, subprocess, tempfile, time
+import hashlib
+import json
+import os
+import re
+import subprocess
+import tempfile
+import time
 from pathlib import Path
 from threading import Lock
 from flask import Flask, jsonify, render_template_string, request
@@ -36,7 +42,8 @@ HERE = Path(__file__).resolve().parent
 CLIP_DIR = Path("/tmp/sophia_clips")
 QA_CACHE_DIR = HERE / "qa_cache"
 QA_DATA_PATH = HERE / "data" / "qa_pairs.json"
-CACHE_DIR = Path("/tmp/sophia_cache"); CACHE_DIR.mkdir(exist_ok=True)
+CACHE_DIR = Path("/tmp/sophia_cache")
+CACHE_DIR.mkdir(exist_ok=True)
 SINK = "sophia_dual"  # Plays to both speakers + virtual mic
 ABACUS_TOKEN_PATH = Path.home() / ".config/abacus/api_token"
 ABACUS_URL = "https://routellm.abacus.ai/v1/chat/completions"
@@ -152,8 +159,10 @@ def play_path(wav_path: str):
     with play_lock:
         if current_proc and current_proc.poll() is None:
             current_proc.terminate()
-            try: current_proc.wait(timeout=0.5)
-            except subprocess.TimeoutExpired: current_proc.kill()
+            try:
+                current_proc.wait(timeout=0.5)
+            except subprocess.TimeoutExpired:
+                current_proc.kill()
         current_proc = subprocess.Popen(
             ["paplay", "--device=" + SINK, wav_path],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
@@ -165,8 +174,10 @@ def stop_playback():
     with play_lock:
         if current_proc and current_proc.poll() is None:
             current_proc.terminate()
-            try: current_proc.wait(timeout=0.5)
-            except subprocess.TimeoutExpired: current_proc.kill()
+            try:
+                current_proc.wait(timeout=0.5)
+            except subprocess.TimeoutExpired:
+                current_proc.kill()
             current_proc = None
             return True
     return False
@@ -266,7 +277,9 @@ def stream_and_play(text: str) -> tuple[float, int]:
         proc = current_proc  # local alias to avoid race with later stops
     print(f"[stream] paplay started pid={proc.pid}")
     t0 = time.monotonic()
-    first_t = None; total_b = 0; broke = None
+    first_t = None
+    total_b = 0
+    broke = None
     try:
         with httpx.stream("POST", XTTS_STREAM_URL,
                           json={"text": text, "speed": 1.0},
@@ -293,8 +306,10 @@ def stream_and_play(text: str) -> tuple[float, int]:
         broke = f"http exc: {e}"
     finally:
         if proc.poll() is None:
-            try: proc.stdin.close()
-            except Exception: pass
+            try:
+                proc.stdin.close()
+            except Exception:
+                pass
     print(f"[stream] done bytes={total_b} ttfb={first_t} broke={broke}")
     return (first_t or 0.0, total_b)
 
@@ -605,8 +620,10 @@ def transcribe():
         return jsonify(ok=False, error=str(e)), 500
     finally:
         for p in (raw_path, wav_path):
-            try: os.unlink(p)
-            except OSError: pass
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
 
 @app.route("/qa/<qa_id>", methods=["POST"])
 def play_qa(qa_id):
@@ -619,7 +636,7 @@ def play_qa(qa_id):
     return jsonify(ok=True, qa_id=qa_id, answer=qa["answer"] if qa else "")
 
 if __name__ == "__main__":
-    print(f"Sophia Console on http://127.0.0.1:5151")
+    print("Sophia Console on http://127.0.0.1:5151")
     print(f"Sink: {SINK}  ·  Clips: {CLIP_DIR}")
-    print(f"Google Meet → Mic input → 'Monitor of Sophia_Mic_Combined'")
+    print("Google Meet → Mic input → 'Monitor of Sophia_Mic_Combined'")
     app.run(host="127.0.0.1", port=5151, debug=False, use_reloader=False)

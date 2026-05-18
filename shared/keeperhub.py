@@ -812,7 +812,7 @@ def _extract_tx_hash(payload: Any) -> str | None:
                 or "transaction" in key.lower()
                 or key.lower() == "hash"
             ) and _looks_like_tx_hash(value):
-                return value
+                return str(value)
         for value in payload.values():
             found = _extract_tx_hash(value)
             if found:

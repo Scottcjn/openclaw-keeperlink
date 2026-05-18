@@ -17,8 +17,8 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
-from eth_account import Account
-from eth_account.messages import encode_defunct
+from eth_account import Account  # type: ignore[import-not-found]
+from eth_account.messages import encode_defunct  # type: ignore[import-not-found]
 from pydantic import BaseModel, ValidationError
 
 from .audit_envelope import canonical_json_bytes

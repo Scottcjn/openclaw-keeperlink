@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import base64
 import json
+from typing import Any
 import os
 import subprocess
 from dataclasses import dataclass
@@ -58,7 +59,7 @@ class ZeroGError(RuntimeError):
     pass
 
 
-def _call_helper(cmd: dict, timeout_s: float = 60.0) -> dict:
+def _call_helper(cmd: dict[str, Any], timeout_s: float = 60.0) -> dict[str, Any]:
     """Send a JSON command to zerog_helper.mjs and parse the JSON response.
 
     The helper exits with code 0 on success, 1 on failure. On failure, stdout
@@ -78,7 +79,7 @@ def _call_helper(cmd: dict, timeout_s: float = 60.0) -> dict:
         stderr = proc.stderr.decode().strip()
         raise ZeroGError(f"helper produced no output (exit={proc.returncode}, stderr={stderr!r})")
     try:
-        result = json.loads(raw.splitlines()[-1])
+        result: dict[str, Any] = json.loads(raw.splitlines()[-1])
     except json.JSONDecodeError as e:
         raise ZeroGError(f"helper produced non-JSON output: {raw!r} ({e})")
     if "error" in result:
@@ -98,10 +99,10 @@ def merkle_root(blob: bytes) -> str:
     return, and for log-line correlation before persistence completes.
     """
     result = _call_helper({"op": "merkle_root", "data_b64": base64.b64encode(blob).decode()})
-    return result["root_hash"]
+    return str(result["root_hash"])
 
 
-def wallet_info(config: ZeroGConfig | None = None) -> dict:
+def wallet_info(config: ZeroGConfig | None = None) -> dict[str, Any]:
     """Get balance + chain ID for the configured wallet."""
     cfg = config or ZeroGConfig.from_env()
     if not cfg.private_key:

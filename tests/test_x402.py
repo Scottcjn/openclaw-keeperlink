@@ -59,7 +59,8 @@ class TestDecodeHeader:
     """Tests for _decode_header helper."""
 
     def test_valid_base64_json(self):
-        import base64, json
+        import base64
+        import json
         payload = {"x402_version": 1, "kind": "test"}
         encoded = base64.b64encode(json.dumps(payload).encode()).decode()
         result = _decode_header(encoded)
@@ -78,7 +79,8 @@ class TestDecodeHeader:
             _decode_header("!!!not-base64!!!")
 
     def test_non_object_json_raises(self):
-        import base64, json
+        import base64
+        import json
         encoded = base64.b64encode(json.dumps([1, 2, 3]).encode()).decode()
         with pytest.raises(ValueError, match="did not decode to an object"):
             _decode_header(encoded)
@@ -137,7 +139,6 @@ class TestEncodeDecodeRoundTrip:
     """Tests that encoding and decoding an envelope round-trips correctly."""
 
     def test_round_trip(self):
-        import json
         msg = X402Message(
             payer="0x" + "ab" * 20,
             payee="0x" + "cd" * 20,
