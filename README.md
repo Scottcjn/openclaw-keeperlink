@@ -1,3 +1,5 @@
+[![BCOS Certified](https://img.shields.io/badge/BCOS-Certified-brightgreen?style=flat)](BCOS.md)
+
 # OpenClaw KeeperLink
 
 > **👨‍⚖️ Judges:** start with [JUDGE_GUIDE.md](JUDGE_GUIDE.md) — 2-minute evaluation path with the strongest 3 clicks first.

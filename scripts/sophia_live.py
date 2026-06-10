@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """Stretch live Sophia voice loop with hard timeouts and clip fallback.
 
 Operator controls:

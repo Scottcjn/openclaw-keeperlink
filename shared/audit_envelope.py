@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """OpenClaw Audit Envelope — the 0G framework-track primitive.
 
 A standardized, signed, content-addressed proof structure that any OpenClaw

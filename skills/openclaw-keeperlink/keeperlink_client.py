@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """CLI entrypoint for the openclaw-keeperlink skill.
 
 The skill stays thin on purpose: it reuses Node A's poster machinery for job

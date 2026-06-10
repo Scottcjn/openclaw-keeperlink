@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # Hits each integration in isolation and prints PASS/FAIL.
 # Day-1 stub. Each section gets fleshed out as its kill-test passes.
 

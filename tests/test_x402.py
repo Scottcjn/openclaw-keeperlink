@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for shared/x402.py — Payment header sign and verify helpers."""
 
 import pytest

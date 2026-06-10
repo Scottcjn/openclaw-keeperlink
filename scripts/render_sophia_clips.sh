@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 set -euo pipefail
 
 XTTS_URL="${XTTS_URL:-http://192.168.0.160:5500/api/tts}"

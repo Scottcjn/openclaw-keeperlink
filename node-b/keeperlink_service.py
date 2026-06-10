@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Node B KeeperLink worker service.
 
 Runs an HTTP service that registers itself with the local MCP router as the

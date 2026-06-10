@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """Reliable pre-rendered Sophia clip launcher for demo day.
 
 Focus the terminal, then press `1`-`8` to play a canned WAV from

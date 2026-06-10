@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """KeeperHub workflow + MCP API wrapper.
 
 Reference:

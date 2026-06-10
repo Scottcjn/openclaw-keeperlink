@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Uniswap Trading API wrapper.
 
 Reference: https://docs.uniswap.org/api/quote/overview

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """OpenClaw KeeperLink live demo orchestrator (direct HTTP path).
 
 Runs discovery → job build → x402 signing → hire → receipt verify, with

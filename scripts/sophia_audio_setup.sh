@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: MIT
 # Sophia Audio Routing — setup virtual mic for Google Meet demo
 #
 # Creates:

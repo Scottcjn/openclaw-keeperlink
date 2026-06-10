@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Combined MCP router + minimal 'echo' MCP server for Node B.
 
 Day-2 kill-test scope. The same container runs:

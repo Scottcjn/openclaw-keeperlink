@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """0G Storage wrapper — Python ↔ TypeScript bridge.
 
 The official 0G SDK is `@0gfoundation/0g-ts-sdk` (Node.js). We talk to it via

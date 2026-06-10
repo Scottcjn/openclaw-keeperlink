@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Gensyn AXL transport wrapper.
 
 AXL exposes a `/mcp/{peer_id}/{service}` HTTP-over-Yggdrasil routing

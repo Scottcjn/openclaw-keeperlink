@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for shared/schemas.py — Pydantic model validation."""
 
 import pytest

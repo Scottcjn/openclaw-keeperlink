@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Smoke tests for the OpenClaw Audit Envelope schema.
 
 Run with: python -m pytest shared/test_audit_envelope.py -v

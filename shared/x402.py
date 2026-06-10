@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """x402 payment header sign + verify helpers.
 
 Demo note: this module currently implements a declarative x402-style payment

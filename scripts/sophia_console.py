@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """Sophia Live Demo Console — web frontend for hotkey clips + live LLM Q&A.
 
 Routes ALL audio playback to PulseAudio sink `sophia_dual` (which combines

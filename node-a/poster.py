@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Node A poster client for the KeeperLink demo loop.
 
 Builds a JobRequest, discovers Node B over AXL, signs an x402-style payment

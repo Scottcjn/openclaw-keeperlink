@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: MIT
 # Tear down sophia audio routing modules.
 set +e
 for mod in module-combine-sink module-loopback module-null-sink; do

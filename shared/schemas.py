@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Wire-format schemas shared between Node A and Node B.
 
 Pydantic v2. Models are append-only — bump a version field rather than

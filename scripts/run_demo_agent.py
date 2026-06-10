@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """Live LLM-driven agent demo for OpenClaw KeeperLink.
 
 Distinct from `run_demo.py` (deterministic orchestrator). Here, an actual LLM
