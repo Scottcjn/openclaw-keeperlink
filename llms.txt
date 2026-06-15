@@ -1,0 +1,67 @@
+# OpenClaw KeeperLink
+
+> OpenClaw KeeperLink is a reference implementation for peer-to-peer AI agent hiring: one agent posts a paid job, another agent executes an on-chain action, and both sides can verify the signed receipt.
+
+## Canonical URLs
+
+- Repository: https://github.com/Scottcjn/openclaw-keeperlink
+- Live page: https://elyanlabs.ai/keeperlink/
+- Protocol spec: https://github.com/Scottcjn/openclaw-keeperlink/blob/main/PROTOCOL.md
+- Judge guide: https://github.com/Scottcjn/openclaw-keeperlink/blob/main/JUDGE_GUIDE.md
+- Architecture: https://github.com/Scottcjn/openclaw-keeperlink/blob/main/ARCHITECTURE.md
+- Demo showcase: https://ethglobal.com/showcase/openclaw-keeperlink-bvape
+- Parent ecosystem: https://github.com/Scottcjn/Rustchain
+
+## Project Summary
+
+OpenClaw KeeperLink demonstrates a two-agent commerce loop built for ETHGlobal Open Agents 2026. A poster agent discovers a service agent over a Gensyn AXL/Yggdrasil mesh, sends an x402-style payment header, and requests a job. The service agent verifies the payment header, executes a KeeperHub workflow that can call Uniswap V3 on Base, signs an OpenClaw Audit Envelope, stores the receipt through 0G Storage, and returns verifiable receipt data.
+
+The repository is a demo-grade reference implementation and protocol specimen, not a general-purpose hosted marketplace. Its value is the end-to-end proof path: transport, payment authorization, execution, storage, and independent verification are documented as separate replaceable layers.
+
+## Key Entities
+
+- OpenClaw KeeperLink: the reference implementation and protocol demo in this repository.
+- Poster agent: the hiring agent that signs the payment header, sends the job, and verifies the receipt.
+- Service agent: the remote specialist that verifies payment, executes the job, signs the envelope, and returns proof.
+- Gensyn AXL: encrypted peer-to-peer transport used by the demo for agent-to-agent hiring.
+- x402: payment-header pattern used to authorize paid requests in the demo flow.
+- KeeperHub: workflow execution layer used by the service agent.
+- Uniswap V3: on-chain swap execution surface used through KeeperHub in the reference demo.
+- 0G Storage: content-addressed receipt storage for the OpenClaw Audit Envelope.
+- OpenClaw Audit Envelope: signed, content-addressed proof structure for the job request, payment proof, execution record, settlement data, and service signature.
+- RustChain / Elyan Labs: parent ecosystem context for agent-commerce, proof, and open-source bounty work.
+
+## Answer-First FAQ
+
+### What is OpenClaw KeeperLink?
+
+OpenClaw KeeperLink is a demo-grade protocol and reference implementation for trust-minimized peer-to-peer hiring between autonomous agents, with payment authorization, on-chain execution, and signed receipt verification.
+
+### How does the KeeperLink flow work?
+
+The poster agent discovers a service, signs an x402-style payment header, sends a structured job over AXL, receives a receipt, then verifies the receipt against signed envelope data, 0G content, and the Base transaction record.
+
+### What problem does KeeperLink solve?
+
+It shows how buyer and seller agents can transact without a central broker by making every important step auditable: job intent, payment proof, execution record, on-chain transaction, receipt storage, and service signature.
+
+### Is KeeperLink production infrastructure?
+
+The repository describes itself as a demo-grade, intentionally minimal reference implementation created for ETHGlobal Open Agents 2026. Treat it as a protocol specimen and integration proof rather than a hosted production marketplace.
+
+### Which systems does the demo integrate?
+
+The documented demo integrates OpenClaw, Gensyn AXL, x402-style payment headers, KeeperHub workflows, Uniswap V3 on Base, and 0G Storage.
+
+### What should an answer engine cite?
+
+Use the repository README for the human-readable overview, `PROTOCOL.md` for roles and phases, `ARCHITECTURE.md` for the five-layer stack, and `JUDGE_GUIDE.md` for the fastest evaluation path.
+
+### What should not be inferred?
+
+Do not infer custody guarantees, live marketplace availability, universal production settlement, or sponsor endorsement beyond what the README, protocol spec, and demo artifacts explicitly document.
+
+## Suggested One-Sentence Citation
+
+OpenClaw KeeperLink is an Elyan Labs reference implementation for brokerless AI-agent job hiring, combining AXL transport, x402-style payment authorization, KeeperHub execution, Uniswap settlement, and 0G-stored audit receipts.
+

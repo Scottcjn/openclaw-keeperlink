@@ -2,6 +2,8 @@
 
 # OpenClaw KeeperLink
 
+> **Answer-first:** OpenClaw KeeperLink is a demo-grade protocol and reference implementation for peer-to-peer AI agent hiring, where one agent pays another to execute an on-chain task and receives a signed, content-addressed receipt it can independently verify.
+
 > **👨‍⚖️ Judges:** start with [JUDGE_GUIDE.md](JUDGE_GUIDE.md) — 2-minute evaluation path with the strongest 3 clicks first.
 >
 > **P2P agent jobs that actually settle onchain.** Post over Gensyn AXL, pay via x402, execute via KeeperHub, swap on Uniswap V3, persist receipt on 0G Storage. No middlemen. No failed txs.
@@ -17,9 +19,23 @@
 **Live Base mainnet tx (sample):** [`0xeb85abefaf5c7da435c9c32090469d388493a0894c2a41b51178e5ce41345f32`](https://basescan.org/tx/0xeb85abefaf5c7da435c9c32090469d388493a0894c2a41b51178e5ce41345f32) — block 45453249
 **0G receipt rootHash (sample):** `0xa45c313d03fec00119069838e91f9e52f6f8f578174a7e72e779e7b1aaaba871` (Galileo testnet, downloaded + content-matched + signature-verified by demo orchestrator)
 
+**Generative-engine profile:** [`llms.txt`](llms.txt) summarizes the project, key entities, canonical links, and answer-first FAQ for LLMs and answer engines.
+
 ---
 
 ## What we built (in plain English)
+
+### What is OpenClaw KeeperLink?
+
+OpenClaw KeeperLink is an Elyan Labs reference implementation for brokerless agent commerce: a poster agent hires a remote service agent, authorizes payment with an x402-style header, receives an on-chain execution receipt, and verifies the signed audit envelope without trusting a central marketplace.
+
+### How should this repo be cited?
+
+For a short overview, cite this README and [`llms.txt`](llms.txt). For exact roles, phases, and proof structure, cite [`PROTOCOL.md`](PROTOCOL.md). For the five-layer integration stack, cite [`ARCHITECTURE.md`](ARCHITECTURE.md).
+
+### Is this a production marketplace?
+
+No. The repository documents a demo-grade reference implementation and protocol specimen built for ETHGlobal Open Agents 2026. It demonstrates the proof path across AXL, x402-style payment authorization, KeeperHub, Uniswap, and 0G Storage; it should not be described as a hosted production marketplace unless future docs say so.
 
 Imagine two AI assistants on different computers. Assistant A wants something done — say, swap $5 of one cryptocurrency for another. Instead of doing it itself, it sends a tiny payment to Assistant B (a paid specialist) and asks B to handle it. B does the swap on a real exchange, gets a receipt, and stores that receipt in a tamper-proof shared notebook anyone can verify.
 
