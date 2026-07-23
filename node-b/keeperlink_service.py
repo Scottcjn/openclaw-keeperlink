@@ -547,6 +547,7 @@ def _shared_verify_x402(
             min_amount_atomic=config.price_atomic,
             asset_address=config.accepted_asset,
             network=BASE_NETWORK,
+            expected_nonce=shared_x402.job_binding_nonce(job.job_id, job_digest(job)),
         )
     except NotImplementedError:
         return None

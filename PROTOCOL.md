@@ -91,7 +91,8 @@ The Service verifies the `x402` header against the pricing it advertised:
 - amount ≥ quoted price
 - network matches
 - signature recovers to the declared payer
-- header is not replayed (nonce check)
+- header is not replayed: the nonce must equal `{job_id}:{job_digest}` for the
+  job being hired, so a header authorizes that job and nothing else
 
 A failed verification returns a structured error with the failure reason. A successful verification proceeds to Phase 4 immediately — there is no held escrow.
 
