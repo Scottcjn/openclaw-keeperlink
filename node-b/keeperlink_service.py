@@ -13,6 +13,7 @@ import asyncio
 import hashlib
 import json
 import os
+import sqlite3
 import sys
 import time
 import uuid
@@ -98,6 +99,15 @@ class ServiceConfig(BaseModel):
     base_rpc_url: str = BASE_RPC_URL
     request_timeout_s: float = 30.0
     zerog_retry_attempts: int = 3
+    # Where the spent-job-nonce ledger lives. A job-bound header (see
+    # job_binding_nonce) proves a header can't be reused for a *different*
+    # job, but on its own does nothing to stop the exact same header being
+    # replayed against the *same* job repeatedly -- and that header is
+    # published in the 0G audit envelope, so it isn't even secret. This
+    # ledger makes each {job_id}:{job_digest} consumable exactly once.
+    nonce_ledger_path: str = os.path.join(
+        os.path.expanduser("~"), ".openclaw-keeperlink", "spent_nonces.db"
+    )
 
     @classmethod
     def from_env(cls) -> "ServiceConfig":
@@ -121,6 +131,10 @@ class ServiceConfig(BaseModel):
             base_rpc_url=os.environ.get("BASE_RPC_URL", BASE_RPC_URL),
             request_timeout_s=float(os.environ.get("KEEPERLINK_TIMEOUT_S", "30")),
             zerog_retry_attempts=int(os.environ.get("KEEPERLINK_ZEROG_RETRY_ATTEMPTS", "3")),
+            nonce_ledger_path=os.environ.get(
+                "KEEPERLINK_NONCE_LEDGER_PATH",
+                os.path.join(os.path.expanduser("~"), ".openclaw-keeperlink", "spent_nonces.db"),
+            ),
         )
 
     @property
@@ -535,6 +549,52 @@ def call_keeperhub_workflow(job: JobRequest, config: ServiceConfig) -> WorkflowD
     )
 
 
+class NonceLedger:
+    """Persistent record of job-binding nonces that have already paid for a hire.
+
+    `job_binding_nonce()` proves a header can't be reused for a *different*
+    job, but a valid header is not secret -- it is republished verbatim
+    inside the 0G audit envelope for the job it paid for. Without tracking
+    which nonces were already redeemed, that same header could be replayed
+    against the *same* job over and over, each time triggering another
+    KeeperHub swap. This ledger makes each nonce consumable exactly once.
+    """
+
+    def __init__(self, db_path: str):
+        self._db_path = db_path
+        directory = os.path.dirname(db_path)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        conn = sqlite3.connect(db_path)
+        try:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS spent_nonces ("
+                "nonce TEXT PRIMARY KEY, job_id TEXT NOT NULL, consumed_at REAL NOT NULL)"
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def consume(self, nonce: str, job_id: str) -> bool:
+        """Atomically mark `nonce` as spent.
+
+        Returns True the first time a given nonce is consumed, False if it
+        was already spent (i.e. this is a replay).
+        """
+        conn = sqlite3.connect(self._db_path)
+        try:
+            conn.execute(
+                "INSERT INTO spent_nonces (nonce, job_id, consumed_at) VALUES (?, ?, ?)",
+                (nonce, job_id, time.time()),
+            )
+            conn.commit()
+            return True
+        except sqlite3.IntegrityError:
+            return False
+        finally:
+            conn.close()
+
+
 def _shared_verify_x402(
     header: str,
     job: JobRequest,
@@ -614,13 +674,25 @@ def verify_x402_payment(
         return PaymentVerificationResult(valid=False, reason="missing x402 payment header")
     shared_result = _shared_verify_x402(header, job, config)
     if shared_result and shared_result.valid:
-        return shared_result
-    fallback_result = fallback_verify_x402(header, job, config)
-    if fallback_result.valid:
-        return fallback_result
-    if shared_result and not shared_result.valid:
-        return shared_result
-    return fallback_result
+        result = shared_result
+    else:
+        fallback_result = fallback_verify_x402(header, job, config)
+        if fallback_result.valid:
+            result = fallback_result
+        elif shared_result and not shared_result.valid:
+            return shared_result
+        else:
+            return fallback_result
+
+    nonce = shared_x402.job_binding_nonce(job.job_id, job_digest(job))
+    ledger = NonceLedger(config.nonce_ledger_path)
+    if not ledger.consume(nonce, job.job_id):
+        return PaymentVerificationResult(
+            valid=False,
+            reason="x402 payment header already redeemed for this job (replay)",
+            header=header,
+        )
+    return result
 
 
 def build_signed_envelope(
