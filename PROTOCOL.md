@@ -91,7 +91,12 @@ The Service verifies the `x402` header against the pricing it advertised:
 - amount ≥ quoted price
 - network matches
 - signature recovers to the declared payer
-- header is not replayed (nonce check)
+- header is bound to one job: the nonce must equal `{job_id}:{job_digest}` for
+  the job being hired, so a header authorizes that job and nothing else
+- header is not replayed: the nonce is checked against a persistent
+  spent-nonce ledger on Node B and consumed on first use, so the same header
+  cannot pay for the same job twice — this matters because the header is not
+  secret, it is republished verbatim inside that job's own 0G audit envelope
 
 A failed verification returns a structured error with the failure reason. A successful verification proceeds to Phase 4 immediately — there is no held escrow.
 

@@ -60,6 +60,18 @@ def _normalize_hex(value: str) -> str:
     return value if value.startswith("0x") else f"0x{value}"
 
 
+def job_binding_nonce(job_id: str, job_digest: str) -> str:
+    """Nonce that binds a payment header to one specific job.
+
+    The declarative envelope has no job fields of its own, so the binding rides
+    in the nonce, which the signature already covers. Including the job digest
+    (not just the id) means the header stops being valid the moment any part of
+    the job changes — amount, tokens, chain.
+    """
+
+    return f"{job_id}:{job_digest}"
+
+
 def _parse_atomic_amount(value: str) -> int:
     parsed = value.strip()
     if not parsed or not parsed.isdigit():
@@ -134,8 +146,15 @@ def verify_payment(
     min_amount_atomic: str,
     asset_address: str,
     network: str = "eip155:8453",
+    *,
+    expected_nonce: str,
 ) -> dict[str, Any]:
     """Verify a declarative x402 payment header.
+
+    `expected_nonce` is the job binding — build it with `job_binding_nonce()`
+    from the job being paid for. Without it a valid header is a bearer token for
+    every future job, so it is keyword-only and required: a caller that forgets
+    gets a TypeError rather than a silent bypass.
 
     Returns a structured result and never raises. This verifies only the signed
     promise for demo purposes; it does not prove funds were settled onchain.
@@ -178,6 +197,9 @@ def verify_payment(
             return result
         if recovered.lower() != envelope.message.payer.lower():
             result["error"] = "recovered payer does not match signed message"
+            return result
+        if envelope.message.nonce != expected_nonce:
+            result["error"] = "payment header is not bound to this job"
             return result
         if envelope.message.payee.lower() != expected_payee.lower():
             result["error"] = "payee mismatch"

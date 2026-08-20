@@ -361,7 +361,7 @@ def _shared_x402_header(job: JobRequest, pricing: PricingInfo, config: PosterCon
             amount_atomic=pricing.amount,
             asset_address=pricing.asset,
             network=pricing.network,
-            nonce=f"{job.job_id}:{job.posted_at}",
+            nonce=shared_x402.job_binding_nonce(job.job_id, job_digest(job)),
         )
     except NotImplementedError:
         return None
