@@ -4,6 +4,6 @@ pydantic>=2.13.4        # Schemas (JobRequest, Receipt, X402PaymentProof, OpenCl
 eth-account>=0.13.7    # EIP-191 signing for x402 + audit envelope
 fastapi>=0.139.0       # Node B HTTP server (Path B: direct HTTP between nodes)
 uvicorn>=0.49.0        # ASGI runner for fastapi
-python-dotenv>=1.2.2   # .env loading
+python-dotenv>=1.2.3   # .env loading
 
 # 0G Storage uses Node helper at scripts/zerog/zerog_helper.mjs (pinned via package-lock.json)
